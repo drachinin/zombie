@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Base Defense — Minimal</title>
+<style>
+  :root{
+    --bg:#0e0f12;
+    --panel:#17181d;
+    --line:#2a2c33;
+    --accent:#5ee6a8;
+    --accent2:#e65e5e;
+    --coin:#e6c15e;
+    --text:#e8e8ea;
+    --muted:#8a8d98;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;height:100%;background:var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color:var(--text);
+    overflow:hidden;
+    -webkit-tap-highlight-color: transparent;
+    user-select:none;
+  }
+  #game-container{
+    position:relative;
+    width:100vw;
+    height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--bg);
+  }
+  canvas{
+    display:block;
+    background:#101114;
+    touch-action:none;
+    cursor:crosshair;
+  }
+  #hud{
+    position:absolute;
+    top:0;left:0;right:0;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    padding:10px 12px;
+    pointer-events:none;
+    font-size:14px;
+    letter-spacing:0.2px;
+  }
+  .hud-box{
+    background:rgba(23,24,29,0.85);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:8px 12px;
+    pointer-events:auto;
+    backdrop-filter: blur(4px);
+  }
+  .stat-row{display:flex;gap:14px;align-items:center;flex-wrap:wrap;}
+  .stat{display:flex;align-items:center;gap:6px;font-weight:600;}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+  .dot-coin{background:var(--coin);}
+  .dot-hp{background:var(--accent2);}
+  .dot-wave{background:var(--accent);}
+  #controls{
+    position:absolute;
+    bottom:0;left:0;right:0;
+    padding:10px 12px 14px;
+    display:flex;
+    justify-content:center;
+    pointer-events:none;
+  }
+  #panel{
+    pointer-events:auto;
+    background:rgba(23,24,29,0.92);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:10px;
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    max-width:96vw;
+    justify-content:center;
+  }
+  .btn{
+    background:#1f2027;
+    border:1px solid var(--line);
+    color:var(--text);
+    border-radius:10px;
+    padding:9px 12px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    min-width:78px;
+    gap:2px;
+    transition:transform .08s ease, background .15s ease;
+  }
+  .btn:active{transform:scale(0.94);}
+  .btn.active{
+    background:var(--accent);
+    color:#0e0f12;
+    border-color:var(--accent);
+  }
+  .btn .cost{
+    font-size:11px;
+    color:var(--coin);
+    font-weight:500;
+  }
+  .btn.active .cost{color:#0e0f12; opacity:0.75;}
+  .btn:disabled{opacity:0.4; cursor:not-allowed;}
+  #topleft-title{
+    font-size:12px;
+    color:var(--muted);
+    margin-bottom:4px;
+    font-weight:600;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+  }
+  #msg-overlay{
+    position:absolute;
+    inset:0;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    background:rgba(10,10,12,0.86);
+    z-index:20;
+    flex-direction:column;
+    text-align:center;
+    padding:20px;
+  }
+  #msg-overlay h1{
+    font-size:28px;
+    margin:0 0 8px;
+  }
+  #msg-overlay p{
+    color:var(--muted);
+    margin:0 0 18px;
+    font-size:14px;
+    max-width:340px;
+    line-height:1.5;
+  }
+  #msg-overlay button{
+    background:var(--accent);
+    border:none;
+    color:#0e0f12;
+    font-weight:700;
+    padding:12px 24px;
+    border-radius:10px;
+    font-size:15px;
+    cursor:pointer;
+  }
+  #wave-banner{
+    position:absolute;
+    top:70px;
+    left:50%;
+    transform:translateX(-50%);
+    background:rgba(23,24,29,0.9);
+    border:1px solid var(--accent);
+    padding:8px 18px;
+    border-radius:10px;
+    font-weight:700;
+    font-size:15px;
+    opacity:0;
+    transition:opacity .4s ease;
+    pointer-events:none;
+    z-index:5;
+  }
+  #hint{
+    position:absolute;
+    bottom:96px;
+    left:50%;
+    transform:translateX(-50%);
+    font-size:12px;
+    color:var(--muted);
+    background:rgba(23,24,29,0.75);
+    padding:6px 12px;
+    border-radius:8px;
+    pointer-events:none;
+    text-align:center;
+    max-width:90vw;
+  }
+</style>
+</head>
+<body>
+<div id="game-container">
+  <canvas id="game"></canvas>
+
+  <div id="hud">
+    <div class="hud-box">
+      <div id="topleft-title">База</div>
+      <div class="stat-row">
+        <span class="stat"><span class="dot dot-hp"></span><span id="hp-val">100</span>/100</span>
+        <span class="stat"><span class="dot dot-coin"></span><span id="coin-val">50</span></span>
+        <span class="stat"><span class="dot dot-wave"></span>Волна <span id="wave-val">1</span></span>
+      </div>
+    </div>
+    <div class="hud-box" style="text-align:right;">
+      <div id="topleft-title">Оружие</div>
+      <div class="stat-row" style="justify-content:flex-end;">
+        <span class="stat">Ур. <span id="wlvl-val">1</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="wave-banner"></div>
+  <div id="hint">Выбери «Стена» и рисуй пальцем/мышью вокруг базы, чтобы блокировать зомби</div>
+
+  <div id="controls">
+    <div id="panel">
+      <button class="btn" id="btn-wall" data-mode="wall">
+        <span>🧱 Стена</span>
+        <span class="cost">5</span>
+      </button>
+      <button class="btn" id="btn-turret" data-mode="turret">
+        <span>🔫 Турель</span>
+        <span class="cost">40</span>
+      </button>
+      <button class="btn" id="btn-erase" data-mode="erase">
+        <span>✖ Снести</span>
+        <span class="cost">0</span>
+      </button>
+      <button class="btn" id="btn-upgrade">
+        <span>⬆ Оружие</span>
+        <span class="cost" id="upgrade-cost">30</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="msg-overlay">
+    <h1 id="msg-title">Game Over</h1>
+    <p id="msg-text">База уничтожена. Попробуй ещё раз — стройте стены заранее и не забывайте копить монетки на апгрейды.</p>
+    <button id="msg-btn">Начать заново</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- Canvas setup ----------
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  let W, H, CX, CY;
+
+  function resize(){
+    const maxW = Math.min(window.innerWidth, 900);
+    const maxH = Math.min(window.innerHeight, 900);
+    const size = Math.min(maxW, maxH);
+    canvas.width = size;
+    canvas.height = size;
+    W = canvas.width;
+    H = canvas.height;
+    CX = W/2;
+    CY = H/2;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---------- Game state ----------
+  const state = {
+    coins: 50,
+    baseHP: 100,
+    baseMaxHP: 100,
+    wave: 1,
+    waveActive: false,
+    waveTimer: 3, // seconds until next wave starts
+    weaponLevel: 1,
+    weaponUpgradeCost: 30,
+    mode: null, // 'wall' | 'turret' | 'erase' | null
+    gameOver: false,
+    zombiesToSpawn: 0,
+    spawnCooldown: 0,
+    running: true,
+  };
+
+  const WALL_COST = 5;
+  const TURRET_COST = 40;
+  const BASE_RADIUS = 26;
+
+  // Walls: array of {x,y,hp,maxhp}
+  let walls = [];
+  const WALL_SIZE = 14; // grid cell size for wall segments
+  const WALL_MAXHP = 30;
+
+  // Turrets: array of {x,y,cooldown,range,fireRate,damage}
+  let turrets = [];
+
+  // Zombies: array of {x,y,hp,maxhp,speed,target...}
+  let zombies = [];
+
+  // Bullets from base weapon and turrets: {x,y,vx,vy,damage,life,color}
+  let bullets = [];
+
+  // particles for minimal juice
+  let particles = [];
+
+  // base weapon state
+  const baseWeapon = {
+    range: 140,
+    fireCooldown: 0,
+    getFireRate(){ return Math.max(0.15, 0.9 - (state.weaponLevel-1)*0.09); }, // seconds between shots
+    getDamage(){ return 4 + (state.weaponLevel-1)*2.5; },
+    getRange(){ return 140 + (state.weaponLevel-1)*10; }
+  };
+
+  // ---------- Grid helpers for wall placement ----------
+  function snapToGrid(x,y){
+    const gx = Math.round(x / WALL_SIZE) * WALL_SIZE;
+    const gy = Math.round(y / WALL_SIZE) * WALL_SIZE;
+    return {x:gx, y:gy};
+  }
+
+  function wallExistsAt(gx,gy){
+    return walls.some(w => w.x === gx && w.y === gy);
+  }
+
+  function distToBase(x,y){
+    return Math.hypot(x-CX, y-CY);
+  }
+
+  // ---------- Input handling ----------
+  let isPointerDown = false;
+  let lastPaintCell = null;
+
+  function getPointerPos(e){
+    const rect = canvas.getBoundingClientRect();
+    let clientX, clientY;
+    if(e.touches && e.touches.length){
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    return {
+      x: (clientX - rect.left) * (canvas.width / rect.width),
+      y: (clientY - rect.top) * (canvas.height / rect.height)
+    };
+  }
+
+  function tryPlaceWall(x,y){
+    if(state.mode !== 'wall') return;
+    const {x:gx, y:gy} = snapToGrid(x,y);
+    if(distToBase(gx,gy) < BASE_RADIUS + 20) return; // don't block base itself
+    if(wallExistsAt(gx,gy)) return;
+    if(state.coins < WALL_COST) return;
+    if(lastPaintCell && lastPaintCell.x === gx && lastPaintCell.y === gy) return;
+    state.coins -= WALL_COST;
+    walls.push({x:gx, y:gy, hp:WALL_MAXHP, maxhp:WALL_MAXHP});
+    lastPaintCell = {x:gx,y:gy};
+    updateHUD();
+  }
+
+  function tryPlaceTurret(x,y){
+    if(state.mode !== 'turret') return;
+    if(state.coins < TURRET_COST) return;
+    if(distToBase(x,y) < BASE_RADIUS + 14) return;
+    // don't place on existing turret
+    for(const t of turrets){
+      if(Math.hypot(t.x-x, t.y-y) < 24) return;
+    }
+    state.coins -= TURRET_COST;
+    turrets.push({
+      x, y,
+      cooldown:0,
+      range:150,
+      fireRate:0.7,
+      damage:6
+    });
+    updateHUD();
+    state.mode = null;
+    setActiveButton(null);
+  }
+
+  function tryErase(x,y){
+    if(state.mode !== 'erase') return;
+    // erase closest wall or turret within radius
+    let closestWallIdx = -1, closestWallDist = 22;
+    walls.forEach((w,i)=>{
+      const d = Math.hypot(w.x-x, w.y-y);
+      if(d < closestWallDist){ closestWallDist = d; closestWallIdx = i; }
+    });
+    if(closestWallIdx >= 0){
+      walls.splice(closestWallIdx,1);
+      return;
+    }
+    let closestTurretIdx = -1, closestTurretDist = 26;
+    turrets.forEach((t,i)=>{
+      const d = Math.hypot(t.x-x, t.y-y);
+      if(d < closestTurretDist){ closestTurretDist = d; closestTurretIdx = i; }
+    });
+    if(closestTurretIdx >= 0){
+      turrets.splice(closestTurretIdx,1);
+    }
+  }
+
+  function handlePointerDown(e){
+    e.preventDefault();
+    if(state.gameOver) return;
+    isPointerDown = true;
+    lastPaintCell = null;
+    const pos = getPointerPos(e);
+    if(state.mode === 'wall') tryPlaceWall(pos.x,pos.y);
+    else if(state.mode === 'turret') tryPlaceTurret(pos.x,pos.y);
+    else if(state.mode === 'erase') tryErase(pos.x,pos.y);
+  }
+  function handlePointerMove(e){
+    if(!isPointerDown) return;
+    e.preventDefault();
+    const pos = getPointerPos(e);
+    if(state.mode === 'wall') tryPlaceWall(pos.x,pos.y);
+    else if(state.mode === 'erase') tryErase(pos.x,pos.y);
+  }
+  function handlePointerUp(e){
+    isPointerDown = false;
+    lastPaintCell = null;
+  }
+
+  canvas.addEventListener('mousedown', handlePointerDown);
+  canvas.addEventListener('mousemove', handlePointerMove);
+  window.addEventListener('mouseup', handlePointerUp);
+  canvas.addEventListener('touchstart', handlePointerDown, {passive:false});
+  canvas.addEventListener('touchmove', handlePointerMove, {passive:false});
+  canvas.addEventListener('touchend', handlePointerUp);
+  canvas.addEventListener('touchcancel', handlePointerUp);
+
+  // ---------- UI buttons ----------
+  const btnWall = document.getElementById('btn-wall');
+  const btnTurret = document.getElementById('btn-turret');
+  const btnErase = document.getElementById('btn-erase');
+  const btnUpgrade = document.getElementById('btn-upgrade');
+
+  function setActiveButton(mode){
+    [btnWall, btnTurret, btnErase].forEach(b => b.classList.remove('active'));
+    if(mode === 'wall') btnWall.classList.add('active');
+    if(mode === 'turret') btnTurret.classList.add('active');
+    if(mode === 'erase') btnErase.classList.add('active');
+  }
+
+  btnWall.addEventListener('click', ()=>{
+    state.mode = state.mode === 'wall' ? null : 'wall';
+    setActiveButton(state.mode);
+  });
+  btnTurret.addEventListener('click', ()=>{
+    state.mode = state.mode === 'turret' ? null : 'turret';
+    setActiveButton(state.mode);
+  });
+  btnErase.addEventListener('click', ()=>{
+    state.mode = state.mode === 'erase' ? null : 'erase';
+    setActiveButton(state.mode);
+  });
+  btnUpgrade.addEventListener('click', ()=>{
+    if(state.coins >= state.weaponUpgradeCost){
+      state.coins -= state.weaponUpgradeCost;
+      state.weaponLevel++;
+      state.weaponUpgradeCost = Math.round(state.weaponUpgradeCost * 1.6);
+      updateHUD();
+    }
+  });
+
+  // ---------- HUD ----------
+  function updateHUD(){
+    document.getElementById('hp-val').textContent = Math.max(0,Math.round(state.baseHP));
+    document.getElementById('coin-val').textContent = state.coins;
+    document.getElementById('wave-val').textContent = state.wave;
+    document.getElementById('wlvl-val').textContent = state.weaponLevel;
+    document.getElementById('upgrade-cost').textContent = state.weaponUpgradeCost;
+
+    btnWall.disabled = state.coins < WALL_COST;
+    btnTurret.disabled = state.coins < TURRET_COST;
+    btnUpgrade.disabled = state.coins < state.weaponUpgradeCost;
+  }
+
+  function showWaveBanner(text){
+    const el = document.getElementById('wave-banner');
+    el.textContent = text;
+    el.style.opacity = '1';
+    setTimeout(()=>{ el.style.opacity = '0'; }, 1800);
+  }
+
+  // ---------- Wave spawning ----------
+  function startWave(){
+    state.waveActive = true;
+    const count = 5 + state.wave * 3;
+    state.zombiesToSpawn = count;
+    state.spawnCooldown = 0;
+    showWaveBanner('Волна ' + state.wave + ' — ' + count + ' зомби');
+  }
+
+  function spawnZombie(){
+    const angle = Math.random() * Math.PI * 2;
+    const spawnDist = Math.max(W,H) * 0.62;
+    const x = CX + Math.cos(angle) * spawnDist;
+    const y = CY + Math.sin(angle) * spawnDist;
+    const hpBase = 12 + state.wave * 3;
+    const isFast = Math.random() < Math.min(0.3, state.wave*0.02);
+    zombies.push({
+      x, y,
+      hp: isFast ? hpBase*0.6 : hpBase,
+      maxhp: isFast ? hpBase*0.6 : hpBase,
+      speed: isFast ? 38 + Math.random()*10 : 20 + Math.random()*8,
+      radius: isFast ? 7 : 9,
+      targetWall: null,
+      attackCooldown: 0,
+      color: isFast ? '#e69a5e' : '#c96b6b'
+    });
+  }
+
+  // ---------- Combat helpers ----------
+  function findNearestZombieInRange(x,y,range){
+    let nearest = null, nd = range;
+    for(const z of zombies){
+      const d = Math.hypot(z.x-x, z.y-y);
+      if(d <= nd){ nd = d; nearest = z; }
+    }
+    return nearest;
+  }
+
+  function damageZombie(z, dmg){
+    z.hp -= dmg;
+    if(z.hp <= 0){
+      const idx = zombies.indexOf(z);
+      if(idx >= 0){
+        zombies.splice(idx,1);
+        const coinGain = 2 + Math.floor(state.wave*0.3);
+        state.coins += coinGain;
+        spawnParticles(z.x, z.y, '#5ee6a8', 6);
+        updateHUD();
+      }
+    } else {
+      spawnParticles(z.x, z.y, '#ffffff', 2);
+    }
+  }
+
+  function spawnParticles(x,y,color,count){
+    for(let i=0;i<count;i++){
+      particles.push({
+        x,y,
+        vx:(Math.random()-0.5)*80,
+        vy:(Math.random()-0.5)*80,
+        life:0.4,
+        maxlife:0.4,
+        color
+      });
+    }
+  }
+
+  // ---------- Update loop ----------
+  let lastTime = performance.now();
+
+  function update(dt){
+    if(state.gameOver) return;
+
+    // Wave management
+    if(!state.waveActive){
+      state.waveTimer -= dt;
+      if(state.waveTimer <= 0){
+        startWave();
+      }
+    } else {
+      state.spawnCooldown -= dt;
+      if(state.zombiesToSpawn > 0 && state.spawnCooldown <= 0){
+        spawnZombie();
+        state.zombiesToSpawn--;
+        state.spawnCooldown = Math.max(0.15, 0.7 - state.wave*0.015);
+      }
+      if(state.zombiesToSpawn <= 0 && zombies.length === 0){
+        state.waveActive = false;
+        state.wave++;
+        state.waveTimer = 6;
+        // small bonus for clearing wave
+        state.coins += 10;
+        updateHUD();
+      }
+    }
+
+    // Zombies movement / targeting
+    for(const z of zombies){
+      // find nearest obstacle: wall or base
+      // Check collision with walls first (closest wall on path)
+      let blockingWall = null;
+      let bd = Infinity;
+      for(const w of walls){
+        const d = Math.hypot(z.x-w.x, z.y-w.y);
+        if(d < bd){ bd = d; blockingWall = w; }
+      }
+      // if a wall is close enough to be "in the way" and closer than base, attack it
+      const distBase = Math.hypot(z.x-CX, z.y-CY);
+
+      let targetX = CX, targetY = CY, targetIsWall = false, targetWall = null;
+      if(blockingWall && bd < distBase - 4){
+        targetX = blockingWall.x; targetY = blockingWall.y;
+        targetIsWall = true; targetWall = blockingWall;
+      }
+
+      const dx = targetX - z.x;
+      const dy = targetY - z.y;
+      const dist = Math.hypot(dx,dy);
+      const stopDist = targetIsWall ? (WALL_SIZE*0.7) : (BASE_RADIUS + z.radius);
+
+      if(dist > stopDist){
+        const nx = dx/dist, ny = dy/dist;
+        z.x += nx * z.speed * dt;
+        z.y += ny * z.speed * dt;
+      } else {
+        // attack
+        z.attackCooldown -= dt;
+        if(z.attackCooldown <= 0){
+          z.attackCooldown = 0.6;
+          if(targetIsWall && targetWall){
+            targetWall.hp -= 8;
+            spawnParticles(targetWall.x, targetWall.y, '#8a8d98', 4);
+            if(targetWall.hp <= 0){
+              const idx = walls.indexOf(targetWall);
+              if(idx>=0) walls.splice(idx,1);
+            }
+          } else if(!targetIsWall){
+            state.baseHP -= 6;
+            spawnParticles(CX,CY,'#e65e5e',6);
+            updateHUD();
+            if(state.baseHP <= 0){
+              triggerGameOver();
+            }
+          }
+        }
+      }
+    }
+
+    // Base weapon auto-fire
+    baseWeapon.fireCooldown -= dt;
+    if(baseWeapon.fireCooldown <= 0){
+      const target = findNearestZombieInRange(CX,CY, baseWeapon.getRange());
+      if(target){
+        const ang = Math.atan2(target.y-CY, target.x-CX);
+        bullets.push({
+          x:CX,y:CY,
+          vx:Math.cos(ang)*260, vy:Math.sin(ang)*260,
+          damage: baseWeapon.getDamage(),
+          life:1.2,
+          color:'#5ee6a8',
+          fromBase:true
+        });
+        baseWeapon.fireCooldown = baseWeapon.getFireRate();
+      }
+    }
+
+    // Turrets auto-fire
+    for(const t of turrets){
+      t.cooldown -= dt;
+      if(t.cooldown <= 0){
+        const target = findNearestZombieInRange(t.x,t.y,t.range);
+        if(target){
+          const ang = Math.atan2(target.y-t.y, target.x-t.x);
+          bullets.push({
+            x:t.x,y:t.y,
+            vx:Math.cos(ang)*320, vy:Math.sin(ang)*320,
+            damage:t.damage,
+            life:1.0,
+            color:'#e6c15e',
+            fromBase:false
+          });
+          t.cooldown = t.fireRate;
+        }
+      }
+    }
+
+    // Bullets movement + collision
+    for(let i=bullets.length-1;i>=0;i--){
+      const b = bullets[i];
+      b.x += b.vx*dt;
+      b.y += b.vy*dt;
+      b.life -= dt;
+      let hit = false;
+      for(const z of zombies){
+        if(Math.hypot(b.x-z.x,b.y-z.y) < z.radius+3){
+          damageZombie(z,b.damage);
+          hit = true;
+          break;
+        }
+      }
+      if(hit || b.life <= 0 || b.x<0||b.x>W||b.y<0||b.y>H){
+        bullets.splice(i,1);
+      }
+    }
+
+    // Particles
+    for(let i=particles.length-1;i>=0;i--){
+      const p = particles[i];
+      p.x += p.vx*dt;
+      p.y += p.vy*dt;
+      p.life -= dt;
+      if(p.life<=0) particles.splice(i,1);
+    }
+  }
+
+  function triggerGameOver(){
+    state.gameOver = true;
+    document.getElementById('msg-title').textContent = 'База уничтожена';
+    document.getElementById('msg-text').textContent = 'Вы продержались ' + (state.wave-1) + ' волн. Стройте стены заранее по кругу и вовремя прокачивайте оружие.';
+    document.getElementById('msg-overlay').style.display = 'flex';
+  }
+
+  // ---------- Rendering ----------
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+
+    // subtle grid background
+    ctx.strokeStyle = 'rgba(255,255,255,0.025)';
+    ctx.lineWidth = 1;
+    const gridStep = 40;
+    for(let x=0;x<W;x+=gridStep){
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+    }
+    for(let y=0;y<H;y+=gridStep){
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+    }
+
+    // range preview for turret placement mode
+    if(state.mode === 'turret'){
+      // nothing dynamic without pointer tracking; skip for simplicity
+    }
+
+    // walls
+    for(const w of walls){
+      const ratio = w.hp / w.maxhp;
+      ctx.fillStyle = ratio > 0.5 ? '#3d4048' : (ratio > 0.2 ? '#5a4a3a' : '#5a3a3a');
+      ctx.fillRect(w.x - WALL_SIZE/2, w.y - WALL_SIZE/2, WALL_SIZE-2, WALL_SIZE-2);
+      ctx.strokeStyle = '#232429';
+      ctx.strokeRect(w.x - WALL_SIZE/2, w.y - WALL_SIZE/2, WALL_SIZE-2, WALL_SIZE-2);
+    }
+
+    // turrets
+    for(const t of turrets){
+      ctx.beginPath();
+      ctx.fillStyle = '#e6c15e';
+      ctx.arc(t.x,t.y,9,0,Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle = '#2a2c33';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // small barrel
+      ctx.strokeStyle = '#8a7135';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(t.x,t.y);
+      ctx.lineTo(t.x+10,t.y);
+      ctx.stroke();
+    }
+
+    // base
+    ctx.beginPath();
+    ctx.fillStyle = '#1f2027';
+    ctx.arc(CX,CY,BASE_RADIUS,0,Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#5ee6a8';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // base hp ring
+    const hpRatio = Math.max(0, state.baseHP/state.baseMaxHP);
+    ctx.beginPath();
+    ctx.strokeStyle = hpRatio > 0.4 ? '#5ee6a8' : '#e65e5e';
+    ctx.lineWidth = 4;
+    ctx.arc(CX,CY,BASE_RADIUS+6, -Math.PI/2, -Math.PI/2 + Math.PI*2*hpRatio);
+    ctx.stroke();
+
+    // weapon range indicator (subtle)
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(94,230,168,0.08)';
+    ctx.lineWidth = 1;
+    ctx.arc(CX,CY, baseWeapon.getRange(), 0, Math.PI*2);
+    ctx.stroke();
+
+    // zombies
+    for(const z of zombies){
+      ctx.beginPath();
+      ctx.fillStyle = z.color;
+      ctx.arc(z.x,z.y,z.radius,0,Math.PI*2);
+      ctx.fill();
+      // hp bar
+      const w2 = z.radius*2.2;
+      const ratio = Math.max(0,z.hp/z.maxhp);
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(z.x-w2/2, z.y-z.radius-8, w2, 3);
+      ctx.fillStyle = '#5ee6a8';
+      ctx.fillRect(z.x-w2/2, z.y-z.radius-8, w2*ratio, 3);
+    }
+
+    // bullets
+    for(const b of bullets){
+      ctx.beginPath();
+      ctx.fillStyle = b.color;
+      ctx.arc(b.x,b.y,3,0,Math.PI*2);
+      ctx.fill();
+    }
+
+    // particles
+    for(const p of particles){
+      const alpha = Math.max(0,p.life/p.maxlife);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x-2,p.y-2,4,4);
+      ctx.globalAlpha = 1;
+    }
+
+    // wave countdown text if between waves
+    if(!state.waveActive && !state.gameOver){
+      ctx.fillStyle = 'rgba(232,232,234,0.6)';
+      ctx.font = '13px -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Следующая волна через ' + Math.ceil(state.waveTimer) + 'с', CX, CY + BASE_RADIUS + 40);
+    }
+  }
+
+  // ---------- Main loop ----------
+  function loop(now){
+    const dt = Math.min(0.05, (now - lastTime)/1000);
+    lastTime = now;
+    if(state.running){
+      update(dt);
+      draw();
+    }
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- Restart ----------
+  document.getElementById('msg-btn').addEventListener('click', ()=>{
+    resetGame();
+  });
+
+  function resetGame(){
+    state.coins = 50;
+    state.baseHP = 100;
+    state.baseMaxHP = 100;
+    state.wave = 1;
+    state.waveActive = false;
+    state.waveTimer = 3;
+    state.weaponLevel = 1;
+    state.weaponUpgradeCost = 30;
+    state.mode = null;
+    state.gameOver = false;
+    state.zombiesToSpawn = 0;
+    state.spawnCooldown = 0;
+    walls = [];
+    turrets = [];
+    zombies = [];
+    bullets = [];
+    particles = [];
+    baseWeapon.fireCooldown = 0;
+    setActiveButton(null);
+    document.getElementById('msg-overlay').style.display = 'none';
+    updateHUD();
+  }
+
+  // ---------- Init ----------
+  updateHUD();
+  requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
