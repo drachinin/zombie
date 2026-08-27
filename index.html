@@ -3,863 +3,1677 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Base Defense — Minimal</title>
+<title>BASTION — оборона базы</title>
 <style>
   :root{
-    --bg:#0e0f12;
-    --panel:#17181d;
-    --line:#2a2c33;
-    --accent:#5ee6a8;
-    --accent2:#e65e5e;
-    --coin:#e6c15e;
-    --text:#e8e8ea;
-    --muted:#8a8d98;
+    --bg: #4a4c30;
+    --grid: #16181d;
+    --ink: #eef0f3;
+    --dim: #7d8496;
+    --accent: #6ee7a8;
+    --accent-dim: #2f6b4c;
+    --danger: #e2555f;
+    --wall: #4a5568;
+    --wall-edge: #cbd5e0;
+    --gold: #f0c674;
+    --panel: #14161b;
   }
   *{box-sizing:border-box;}
   html,body{
-    margin:0;padding:0;height:100%;background:var(--bg);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    color:var(--text);
-    overflow:hidden;
-    -webkit-tap-highlight-color: transparent;
-    user-select:none;
+    margin:0; padding:0; height:100%; overflow:hidden;
+    background:var(--bg); color:var(--ink);
+    font-family: 'Courier New', ui-monospace, monospace;
+    -webkit-user-select:none; user-select:none; touch-action:none;
   }
-  #game-container{
-    position:relative;
-    width:100vw;
-    height:100vh;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    background:var(--bg);
+  #wrap{
+    position:relative; width:100vw; height:100vh;
+    display:flex; align-items:center; justify-content:center;
   }
   canvas{
-    display:block;
-    background:#101114;
-    touch-action:none;
-    cursor:crosshair;
+    display:block; background:var(--bg);
+    image-rendering:pixelated;
   }
+
   #hud{
-    position:absolute;
-    top:0;left:0;right:0;
-    display:flex;
-    justify-content:space-between;
-    align-items:flex-start;
-    padding:10px 12px;
+    position:fixed; top:0; left:0; right:0;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 14px;
     pointer-events:none;
-    font-size:14px;
-    letter-spacing:0.2px;
+    z-index:10;
   }
-  .hud-box{
-    background:rgba(23,24,29,0.85);
-    border:1px solid var(--line);
-    border-radius:10px;
-    padding:8px 12px;
-    pointer-events:auto;
-    backdrop-filter: blur(4px);
-  }
-  .stat-row{display:flex;gap:14px;align-items:center;flex-wrap:wrap;}
-  .stat{display:flex;align-items:center;gap:6px;font-weight:600;}
-  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
-  .dot-coin{background:var(--coin);}
-  .dot-hp{background:var(--accent2);}
-  .dot-wave{background:var(--accent);}
-  #controls{
-    position:absolute;
-    bottom:0;left:0;right:0;
-    padding:10px 12px 14px;
-    display:flex;
-    justify-content:center;
-    pointer-events:none;
-  }
-  #panel{
-    pointer-events:auto;
-    background:rgba(23,24,29,0.92);
-    border:1px solid var(--line);
-    border-radius:14px;
-    padding:10px;
-    display:flex;
-    gap:8px;
-    flex-wrap:wrap;
-    max-width:96vw;
-    justify-content:center;
-  }
-  .btn{
-    background:#1f2027;
-    border:1px solid var(--line);
-    color:var(--text);
-    border-radius:10px;
-    padding:9px 12px;
-    font-size:13px;
-    font-weight:600;
-    cursor:pointer;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    min-width:78px;
-    gap:2px;
-    transition:transform .08s ease, background .15s ease;
-  }
-  .btn:active{transform:scale(0.94);}
-  .btn.active{
-    background:var(--accent);
-    color:#0e0f12;
-    border-color:var(--accent);
-  }
-  .btn .cost{
-    font-size:11px;
-    color:var(--coin);
-    font-weight:500;
-  }
-  .btn.active .cost{color:#0e0f12; opacity:0.75;}
-  .btn:disabled{opacity:0.4; cursor:not-allowed;}
-  #topleft-title{
-    font-size:12px;
-    color:var(--muted);
-    margin-bottom:4px;
-    font-weight:600;
-    letter-spacing:0.5px;
-    text-transform:uppercase;
-  }
-  #msg-overlay{
-    position:absolute;
-    inset:0;
-    display:none;
-    align-items:center;
-    justify-content:center;
-    background:rgba(10,10,12,0.86);
-    z-index:20;
-    flex-direction:column;
-    text-align:center;
-    padding:20px;
-  }
-  #msg-overlay h1{
-    font-size:28px;
-    margin:0 0 8px;
-  }
-  #msg-overlay p{
-    color:var(--muted);
-    margin:0 0 18px;
-    font-size:14px;
-    max-width:340px;
-    line-height:1.5;
-  }
-  #msg-overlay button{
-    background:var(--accent);
-    border:none;
-    color:#0e0f12;
-    font-weight:700;
-    padding:12px 24px;
-    border-radius:10px;
-    font-size:15px;
-    cursor:pointer;
-  }
-  #wave-banner{
-    position:absolute;
-    top:70px;
-    left:50%;
-    transform:translateX(-50%);
-    background:rgba(23,24,29,0.9);
-    border:1px solid var(--accent);
-    padding:8px 18px;
-    border-radius:10px;
-    font-weight:700;
-    font-size:15px;
-    opacity:0;
-    transition:opacity .4s ease;
-    pointer-events:none;
-    z-index:5;
-  }
-  #hint{
-    position:absolute;
-    bottom:96px;
-    left:50%;
-    transform:translateX(-50%);
-    font-size:12px;
-    color:var(--muted);
-    background:rgba(23,24,29,0.75);
-    padding:6px 12px;
+  .hud-chip{
+    background:rgba(20,22,27,0.85);
+    border:1px solid #262a33;
     border-radius:8px;
+    padding:6px 12px;
+    font-size:13px;
+    letter-spacing:0.5px;
+    display:flex; align-items:center; gap:8px;
+    pointer-events:auto;
+    cursor:default;
+  }
+  #btn-settings{
+    cursor:pointer;
+    color:var(--dim);
+  }
+  #btn-settings:active{ transform:scale(0.96); }
+  .hud-left{ display:flex; gap:8px; }
+  #coins{ color:var(--gold); font-weight:bold; }
+  #hp-chip{ color:var(--accent); }
+  #hp-chip.low{ color:var(--danger); }
+  #wave-chip{ color:var(--ink); }
+
+  #toolbar{
+    position:fixed; bottom:0; left:0; right:0;
+    display:flex; justify-content:center;
+    padding:12px 10px 16px;
+    z-index:10;
     pointer-events:none;
+  }
+  #toolbar-inner{
+    display:flex; gap:8px;
+    background:rgba(20,22,27,0.9);
+    border:1px solid #262a33;
+    border-radius:12px;
+    padding:8px;
+    pointer-events:auto;
+    max-width:96vw;
+    overflow-x:auto;
+  }
+  .tool-btn{
+    background:#1b1e25;
+    border:1px solid #2a2e38;
+    color:var(--ink);
+    border-radius:8px;
+    padding:8px 12px;
+    font-family:inherit;
+    font-size:12px;
+    cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+    min-width:64px;
+    transition:transform 0.08s ease, border-color 0.15s ease;
+    white-space:nowrap;
+  }
+  .tool-btn:active{ transform:scale(0.94); }
+  .tool-btn.active{
+    border-color:var(--accent);
+    box-shadow:0 0 0 1px var(--accent) inset;
+  }
+  .tool-btn .cost{ color:var(--gold); font-size:11px; }
+  .tool-btn:disabled{ opacity:0.35; cursor:not-allowed; }
+  .tool-btn .lvl{ color:var(--dim); font-size:10px; }
+
+  #banner{
+    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+    text-align:center;
+    z-index:20;
+    pointer-events:none;
+  }
+  #banner .big{
+    font-size:clamp(28px,6vw,54px);
+    font-weight:bold;
+    letter-spacing:2px;
+    color:var(--ink);
+    text-shadow:0 0 20px rgba(0,0,0,0.8);
+  }
+  #banner .small{
+    font-size:14px; color:var(--dim); margin-top:8px;
+  }
+
+  .overlay{
+    position:fixed; inset:0;
+    background:rgba(10,11,14,0.92);
+    display:flex; align-items:center; justify-content:center;
+    z-index:30;
+    flex-direction:column;
+    gap:18px;
+    padding:20px;
+    text-align:center;
+  }
+  .overlay h1{
+    font-size:clamp(30px,7vw,56px);
+    margin:0;
+    letter-spacing:3px;
+    color:var(--accent);
+  }
+  .overlay p{
+    color:var(--dim);
+    max-width:440px;
+    line-height:1.6;
+    font-size:14px;
+    margin:0;
+  }
+  .overlay .stat{
+    color:var(--ink);
+    font-size:18px;
+  }
+  .overlay button{
+    background:var(--accent);
+    color:#0e0f12;
+    border:none;
+    border-radius:8px;
+    padding:14px 32px;
+    font-family:inherit;
+    font-weight:bold;
+    font-size:16px;
+    letter-spacing:1px;
+    cursor:pointer;
+    margin-top:6px;
+  }
+  .overlay button:active{ transform:scale(0.97); }
+
+  #hint{
+    position:fixed; top:56px; left:50%; transform:translateX(-50%);
+    font-size:12px; color:var(--dim);
+    z-index:10; pointer-events:none;
     text-align:center;
     max-width:90vw;
+  }
+
+  /* Settings panel */
+  #settings-overlay{
+    position:fixed; inset:0;
+    background:rgba(10,11,14,0.92);
+    display:none;
+    align-items:center; justify-content:center;
+    z-index:40;
+    padding:16px;
+  }
+  #settings-overlay.open{ display:flex; }
+  #settings-panel{
+    background:var(--panel);
+    border:1px solid #262a33;
+    border-radius:12px;
+    width:100%;
+    max-width:480px;
+    max-height:88vh;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  #settings-header{
+    padding:14px 18px;
+    border-bottom:1px solid #262a33;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  #settings-header h2{
+    font-size:16px; margin:0; letter-spacing:1px; color:var(--ink);
+  }
+  #settings-close{
+    background:none; border:none; color:var(--dim);
+    font-size:20px; cursor:pointer; line-height:1; padding:4px 8px;
+  }
+  #settings-body{
+    padding:6px 18px 14px;
+    overflow-y:auto;
+    flex:1;
+  }
+  .settings-group{
+    margin-top:14px;
+  }
+  .settings-group h3{
+    font-size:11px; color:var(--accent);
+    letter-spacing:1px; text-transform:uppercase;
+    margin:0 0 8px;
+    border-bottom:1px solid #21242c;
+    padding-bottom:6px;
+  }
+  .settings-row{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:10px;
+    padding:6px 0;
+  }
+  .settings-row label{
+    font-size:12.5px; color:var(--ink); flex:1;
+  }
+  .settings-row input{
+    width:88px;
+    background:#1b1e25;
+    border:1px solid #2a2e38;
+    color:var(--ink);
+    border-radius:6px;
+    padding:6px 8px;
+    font-family:inherit;
+    font-size:13px;
+    text-align:right;
+  }
+  .settings-row input:focus{
+    outline:none;
+    border-color:var(--accent);
+  }
+  #settings-footer{
+    padding:12px 18px 16px;
+    border-top:1px solid #262a33;
+    display:flex; gap:10px;
+  }
+  #settings-footer button{
+    flex:1;
+    font-family:inherit;
+    font-size:13px;
+    font-weight:bold;
+    letter-spacing:0.5px;
+    border-radius:8px;
+    padding:11px;
+    cursor:pointer;
+    border:1px solid #2a2e38;
+  }
+  #settings-apply{
+    background:var(--accent);
+    color:#0e0f12;
+    border:none;
+  }
+  #settings-reset-defaults{
+    background:#1b1e25;
+    color:var(--dim);
+  }
+  #settings-note{
+    font-size:11.5px;
+    color:var(--dim);
+    line-height:1.5;
+    margin:2px 0 0;
   }
 </style>
 </head>
 <body>
-<div id="game-container">
+<div id="wrap">
   <canvas id="game"></canvas>
 
   <div id="hud">
-    <div class="hud-box">
-      <div id="topleft-title">База</div>
-      <div class="stat-row">
-        <span class="stat"><span class="dot dot-hp"></span><span id="hp-val">100</span>/100</span>
-        <span class="stat"><span class="dot dot-coin"></span><span id="coin-val">50</span></span>
-        <span class="stat"><span class="dot dot-wave"></span>Волна <span id="wave-val">1</span></span>
-      </div>
+    <div class="hud-left">
+      <div class="hud-chip" id="coins">◆ 50</div>
+      <div class="hud-chip" id="hp-chip">HP 100</div>
     </div>
-    <div class="hud-box" style="text-align:right;">
-      <div id="topleft-title">Оружие</div>
-      <div class="stat-row" style="justify-content:flex-end;">
-        <span class="stat">Ур. <span id="wlvl-val">1</span></span>
-      </div>
+    <div class="hud-left">
+      <div class="hud-chip" id="wave-chip">Волна 1</div>
+      <div class="hud-chip" id="btn-settings" role="button" tabindex="0">Настройки</div>
     </div>
   </div>
 
-  <div id="wave-banner"></div>
-  <div id="hint">Выбери «Стена» и рисуй пальцем/мышью вокруг базы, чтобы блокировать зомби</div>
+  <div id="hint">Рисуй пальцем/мышью стены вокруг базы</div>
 
-  <div id="controls">
-    <div id="panel">
-      <button class="btn" id="btn-wall" data-mode="wall">
-        <span>🧱 Стена</span>
-        <span class="cost">5</span>
+  <div id="banner"></div>
+
+  <div id="toolbar">
+    <div id="toolbar-inner">
+      <button class="tool-btn active" data-tool="wall" id="btn-wall">
+        <span>Стена</span>
+        <span class="cost" id="wall-cost">◆2</span>
       </button>
-      <button class="btn" id="btn-turret" data-mode="turret">
-        <span>🔫 Турель</span>
-        <span class="cost">40</span>
+      <button class="tool-btn" data-tool="erase" id="btn-erase">
+        <span>Снести</span>
+        <span class="cost">◆0</span>
       </button>
-      <button class="btn" id="btn-erase" data-mode="erase">
-        <span>✖ Снести</span>
-        <span class="cost">0</span>
+      <button class="tool-btn" data-tool="turret" id="btn-turret">
+        <span>Турель</span>
+        <span class="cost" id="turret-cost">◆40</span>
       </button>
-      <button class="btn" id="btn-upgrade">
-        <span>⬆ Оружие</span>
-        <span class="cost" id="upgrade-cost">30</span>
+      <button class="tool-btn" id="btn-upgrade">
+        <span>Оружие</span>
+        <span class="cost" id="upgrade-cost">◆30</span>
+        <span class="lvl" id="upgrade-lvl">ур.1</span>
       </button>
     </div>
   </div>
+</div>
 
-  <div id="msg-overlay">
-    <h1 id="msg-title">Game Over</h1>
-    <p id="msg-text">База уничтожена. Попробуй ещё раз — стройте стены заранее и не забывайте копить монетки на апгрейды.</p>
-    <button id="msg-btn">Начать заново</button>
+<div class="overlay" id="start-overlay">
+  <h1>BASTION</h1>
+  <p>
+    В центре — твоя база. Зомби идут волнами со всех сторон.<br>
+    Строй стены (рисуй пальцем), чтобы блокировать проходы.<br>
+    За убитых зомби — монеты. Прокачивай оружие и ставь турели.
+  </p>
+  <button id="start-btn">Начать оборону</button>
+  <button id="start-settings-btn" style="background:transparent;color:var(--dim);border:1px solid #2a2e38;font-weight:normal;font-size:13px;padding:10px 24px;">Настройки баланса</button>
+</div>
+
+<div class="overlay" id="gameover-overlay" style="display:none;">
+  <h1 style="color:var(--danger);">БАЗА ПАЛА</h1>
+  <p class="stat">Продержались волн: <span id="final-wave">0</span></p>
+  <p class="stat">Убито зомби: <span id="final-kills">0</span></p>
+  <button id="retry-btn">Заново</button>
+</div>
+
+<div id="settings-overlay">
+  <div id="settings-panel">
+    <div id="settings-header">
+      <h2>Настройки баланса</h2>
+      <button id="settings-close" aria-label="Закрыть">×</button>
+    </div>
+    <div id="settings-body">
+      <p id="settings-note">Изменения применяются после нажатия «Применить и начать заново» — раунд перезапустится с новыми значениями.</p>
+
+      <div class="settings-group">
+        <h3>Старт</h3>
+        <div class="settings-row"><label>Монет в начале</label><input type="number" id="cfg-startCoins" step="1"></div>
+        <div class="settings-row"><label>Здоровье базы (макс.)</label><input type="number" id="cfg-baseHpMax" step="1"></div>
+      </div>
+
+      <div class="settings-group">
+        <h3>Строительство</h3>
+        <div class="settings-row"><label>Цена стены</label><input type="number" id="cfg-wallCost" step="1"></div>
+        <div class="settings-row"><label>Прочность стены</label><input type="number" id="cfg-wallHp" step="1"></div>
+        <div class="settings-row"><label>Цена турели (первой)</label><input type="number" id="cfg-turretCostBase" step="1"></div>
+        <div class="settings-row"><label>Рост цены турели ×</label><input type="number" id="cfg-turretCostGrowth" step="0.05"></div>
+      </div>
+
+      <div class="settings-group">
+        <h3>Оружие базы</h3>
+        <div class="settings-row"><label>Цена прокачки (первой)</label><input type="number" id="cfg-weaponUpgradeCostBase" step="1"></div>
+        <div class="settings-row"><label>Рост цены прокачки ×</label><input type="number" id="cfg-weaponUpgradeCostGrowth" step="0.05"></div>
+        <div class="settings-row"><label>Урон (баз.)</label><input type="number" id="cfg-weaponBaseDmg" step="1"></div>
+        <div class="settings-row"><label>Урон за уровень</label><input type="number" id="cfg-weaponDmgPerLevel" step="1"></div>
+        <div class="settings-row"><label>Задержка выстрела, с (баз.)</label><input type="number" id="cfg-weaponBaseFireRate" step="0.05"></div>
+        <div class="settings-row"><label>Ускорение за уровень, с</label><input type="number" id="cfg-weaponFireRatePerLevel" step="0.01"></div>
+        <div class="settings-row"><label>Мин. задержка выстрела, с</label><input type="number" id="cfg-weaponMinFireRate" step="0.01"></div>
+        <div class="settings-row"><label>Радиус (баз.)</label><input type="number" id="cfg-weaponBaseRange" step="5"></div>
+        <div class="settings-row"><label>Радиус за уровень</label><input type="number" id="cfg-weaponRangePerLevel" step="1"></div>
+      </div>
+
+      <div class="settings-group">
+        <h3>Турели (фикс. характеристики)</h3>
+        <div class="settings-row"><label>Урон</label><input type="number" id="cfg-turretDmg" step="1"></div>
+        <div class="settings-row"><label>Задержка выстрела, с</label><input type="number" id="cfg-turretFireRate" step="0.05"></div>
+        <div class="settings-row"><label>Радиус</label><input type="number" id="cfg-turretRange" step="5"></div>
+      </div>
+
+      <div class="settings-group">
+        <h3>Волны</h3>
+        <div class="settings-row"><label>Пауза между волнами, с</label><input type="number" id="cfg-betweenWaveTime" step="1"></div>
+        <div class="settings-row"><label>Зомби в волне (баз.)</label><input type="number" id="cfg-waveBaseCount" step="1"></div>
+        <div class="settings-row"><label>Зомби за номер волны</label><input type="number" id="cfg-waveCountPerWave" step="0.1"></div>
+        <div class="settings-row"><label>Бонус за волну (баз.)</label><input type="number" id="cfg-waveClearBonusBase" step="1"></div>
+        <div class="settings-row"><label>Бонус за номер волны</label><input type="number" id="cfg-waveClearBonusPerWave" step="1"></div>
+      </div>
+
+      <div class="settings-group">
+        <h3>Монеты за убийство</h3>
+        <div class="settings-row"><label>Обычный</label><input type="number" id="cfg-zNormalReward" step="1"></div>
+        <div class="settings-row"><label>Быстрый</label><input type="number" id="cfg-zFastReward" step="1"></div>
+        <div class="settings-row"><label>Танк</label><input type="number" id="cfg-zTankReward" step="1"></div>
+        <div class="settings-row"><label>Толпа</label><input type="number" id="cfg-zSwarmReward" step="1"></div>
+      </div>
+
+      <div class="settings-group">
+        <h3>Зомби — здоровье</h3>
+        <div class="settings-row"><label>Обычный HP</label><input type="number" id="cfg-zNormalHp" step="1"></div>
+        <div class="settings-row"><label>Быстрый HP</label><input type="number" id="cfg-zFastHp" step="1"></div>
+        <div class="settings-row"><label>Танк HP</label><input type="number" id="cfg-zTankHp" step="1"></div>
+        <div class="settings-row"><label>Толпа HP</label><input type="number" id="cfg-zSwarmHp" step="1"></div>
+      </div>
+
+      <div class="settings-group">
+        <h3>Зомби — скорость</h3>
+        <div class="settings-row"><label>Обычный</label><input type="number" id="cfg-zNormalSpeed" step="1"></div>
+        <div class="settings-row"><label>Быстрый</label><input type="number" id="cfg-zFastSpeed" step="1"></div>
+        <div class="settings-row"><label>Танк</label><input type="number" id="cfg-zTankSpeed" step="1"></div>
+        <div class="settings-row"><label>Толпа</label><input type="number" id="cfg-zSwarmSpeed" step="1"></div>
+      </div>
+
+      <div class="settings-group">
+        <h3>Зомби — урон по базе</h3>
+        <div class="settings-row"><label>Обычный</label><input type="number" id="cfg-zNormalDmgBase" step="1"></div>
+        <div class="settings-row"><label>Быстрый</label><input type="number" id="cfg-zFastDmgBase" step="1"></div>
+        <div class="settings-row"><label>Танк</label><input type="number" id="cfg-zTankDmgBase" step="1"></div>
+        <div class="settings-row"><label>Толпа</label><input type="number" id="cfg-zSwarmDmgBase" step="1"></div>
+      </div>
+
+      <div class="settings-group">
+        <h3>Зомби — урон по стенам</h3>
+        <div class="settings-row"><label>Обычный</label><input type="number" id="cfg-zNormalDmgWall" step="1"></div>
+        <div class="settings-row"><label>Быстрый</label><input type="number" id="cfg-zFastDmgWall" step="1"></div>
+        <div class="settings-row"><label>Танк</label><input type="number" id="cfg-zTankDmgWall" step="1"></div>
+        <div class="settings-row"><label>Толпа</label><input type="number" id="cfg-zSwarmDmgWall" step="1"></div>
+      </div>
+    </div>
+    <div id="settings-footer">
+      <button id="settings-reset-defaults">Сбросить по умолчанию</button>
+      <button id="settings-apply">Применить и начать заново</button>
+    </div>
   </div>
 </div>
 
 <script>
 (function(){
-  "use strict";
+"use strict";
 
-  // ---------- Canvas setup ----------
-  const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d');
-  let W, H, CX, CY;
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let DPR = Math.min(window.devicePixelRatio||1, 2);
+let W=0, H=0;
 
-  function resize(){
-    const maxW = Math.min(window.innerWidth, 900);
-    const maxH = Math.min(window.innerHeight, 900);
-    const size = Math.min(maxW, maxH);
-    canvas.width = size;
-    canvas.height = size;
-    W = canvas.width;
-    H = canvas.height;
-    CX = W/2;
-    CY = H/2;
-  }
-  window.addEventListener('resize', resize);
-  resize();
+function resize(){
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W*DPR;
+  canvas.height = H*DPR;
+  canvas.style.width = W+'px';
+  canvas.style.height = H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+resize();
 
-  // ---------- Game state ----------
-  const state = {
-    coins: 50,
-    baseHP: 100,
-    baseMaxHP: 100,
-    wave: 1,
-    waveActive: false,
-    waveTimer: 3, // seconds until next wave starts
-    weaponLevel: 1,
-    weaponUpgradeCost: 30,
-    mode: null, // 'wall' | 'turret' | 'erase' | null
-    gameOver: false,
-    zombiesToSpawn: 0,
-    spawnCooldown: 0,
-    running: true,
+const GRID = 8;
+const BASE_RADIUS = 20;
+const TURRET_MIN_SPACING = 26; // minimum distance between turrets, independent of wall cell size
+
+// ---------- Balance configuration ----------
+// All tunable numbers live here so they can be edited from the Settings panel.
+const CONFIG = {
+  startCoins: 50,
+  baseHpMax: 100,
+
+  wallCost: 2,
+  wallHp: 30,
+  turretCostBase: 40,
+  turretCostGrowth: 1.35, // multiplier applied to turret cost after each purchase
+  weaponUpgradeCostBase: 30,
+  weaponUpgradeCostGrowth: 1.5,
+
+  // base weapon (auto-fires from the bunker), scales with weaponLevel
+  weaponBaseRange: 170,
+  weaponRangePerLevel: 8,
+  weaponBaseFireRate: 1.1,   // seconds between shots at level 1 (lower = faster)
+  weaponFireRatePerLevel: 0.12, // reduction in fireRate per level
+  weaponMinFireRate: 0.28,
+  weaponBaseDmg: 6,
+  weaponDmgPerLevel: 4,
+
+  // turret stats (fixed, once placed)
+  turretRange: 130,
+  turretFireRate: 0.9,
+  turretDmg: 5,
+
+  // wave pacing
+  betweenWaveTime: 6,
+  waveClearBonusBase: 8,
+  waveClearBonusPerWave: 1,
+  waveBaseCount: 6,
+  waveCountPerWave: 1.8,
+
+  // zombie base stats (kind = normal)
+  zNormalHp: 20, zNormalSpeed: 26, zNormalRadius: 9, zNormalReward: 4, zNormalDmgWall: 8, zNormalDmgBase: 8,
+  zFastHp: 14,   zFastSpeed: 52,   zFastRadius: 7,  zFastReward: 5,   zFastDmgWall: 5,   zFastDmgBase: 6,
+  zTankHp: 70,   zTankSpeed: 15,   zTankRadius: 13, zTankReward: 12,  zTankDmgWall: 22,  zTankDmgBase: 16,
+  zSwarmHp: 8,   zSwarmSpeed: 34,  zSwarmRadius: 6, zSwarmReward: 2,  zSwarmDmgWall: 4,  zSwarmDmgBase: 4,
+};
+
+function center(){ return {x: W/2, y: H/2}; }
+
+let state = {
+  running:false,
+  coins:CONFIG.startCoins,
+  baseHP:CONFIG.baseHpMax,
+  wave:1,
+  waveActive:false,
+  waveTimer:2,
+  kills:0,
+  weaponLevel:1,
+  wallCost:CONFIG.wallCost,
+  turretCost:CONFIG.turretCostBase,
+  tool:'wall',
+  walls:[],
+  turrets:[],
+  zombies:[],
+  bullets:[],
+  particles:[],
+  floatTexts:[],
+  lastTime:0,
+  spawnQueue:[],
+  spawnTimer:0,
+  lastDrawCell:null,
+  shakeT:0, shakeMag:0,
+};
+
+let wallSet = new Set();
+
+function wallKey(gx,gy){ return gx+','+gy; }
+function gridOf(x,y){ return { gx: Math.round(x/GRID), gy: Math.round(y/GRID) }; }
+function gridToWorld(gx,gy){ return { x: gx*GRID, y: gy*GRID }; }
+
+let baseWeapon = { cooldown:0 };
+
+function weaponStatsForLevel(lvl){
+  return {
+    range: CONFIG.weaponBaseRange + lvl*CONFIG.weaponRangePerLevel,
+    fireRate: Math.max(CONFIG.weaponMinFireRate, CONFIG.weaponBaseFireRate - (lvl-1)*CONFIG.weaponFireRatePerLevel),
+    dmg: CONFIG.weaponBaseDmg + (lvl-1)*CONFIG.weaponDmgPerLevel,
   };
+}
+function turretStats(){ return { range: CONFIG.turretRange, fireRate: CONFIG.turretFireRate, dmg: CONFIG.turretDmg }; }
 
-  const WALL_COST = 5;
-  const TURRET_COST = 40;
-  const BASE_RADIUS = 26;
-
-  // Walls: array of {x,y,hp,maxhp}
-  let walls = [];
-  const WALL_SIZE = 14; // grid cell size for wall segments
-  const WALL_MAXHP = 30;
-
-  // Turrets: array of {x,y,cooldown,range,fireRate,damage}
-  let turrets = [];
-
-  // Zombies: array of {x,y,hp,maxhp,speed,target...}
-  let zombies = [];
-
-  // Bullets from base weapon and turrets: {x,y,vx,vy,damage,life,color}
-  let bullets = [];
-
-  // particles for minimal juice
-  let particles = [];
-
-  // base weapon state
-  const baseWeapon = {
-    range: 140,
-    fireCooldown: 0,
-    getFireRate(){ return Math.max(0.15, 0.9 - (state.weaponLevel-1)*0.09); }, // seconds between shots
-    getDamage(){ return 4 + (state.weaponLevel-1)*2.5; },
-    getRange(){ return 140 + (state.weaponLevel-1)*10; }
+function makeZombie(kind, spawnPos){
+  let base = {
+    x: spawnPos.x, y: spawnPos.y,
+    vx:0, vy:0,
+    hp:CONFIG.zNormalHp, maxHp:CONFIG.zNormalHp,
+    speed:CONFIG.zNormalSpeed,
+    radius:CONFIG.zNormalRadius,
+    reward:CONFIG.zNormalReward,
+    dmgToWall:CONFIG.zNormalDmgWall,
+    dmgToBase:CONFIG.zNormalDmgBase,
+    kind: kind,
+    slowT:0,
+    _atkT: undefined,
+    dead:false,
   };
-
-  // ---------- Grid helpers for wall placement ----------
-  function snapToGrid(x,y){
-    const gx = Math.round(x / WALL_SIZE) * WALL_SIZE;
-    const gy = Math.round(y / WALL_SIZE) * WALL_SIZE;
-    return {x:gx, y:gy};
+  if(kind==='fast'){
+    base.hp=CONFIG.zFastHp; base.maxHp=CONFIG.zFastHp; base.speed=CONFIG.zFastSpeed; base.radius=CONFIG.zFastRadius;
+    base.reward=CONFIG.zFastReward; base.dmgToBase=CONFIG.zFastDmgBase; base.dmgToWall=CONFIG.zFastDmgWall;
+  } else if(kind==='tank'){
+    base.hp=CONFIG.zTankHp; base.maxHp=CONFIG.zTankHp; base.speed=CONFIG.zTankSpeed; base.radius=CONFIG.zTankRadius;
+    base.reward=CONFIG.zTankReward; base.dmgToBase=CONFIG.zTankDmgBase; base.dmgToWall=CONFIG.zTankDmgWall;
+  } else if(kind==='swarm'){
+    base.hp=CONFIG.zSwarmHp; base.maxHp=CONFIG.zSwarmHp; base.speed=CONFIG.zSwarmSpeed; base.radius=CONFIG.zSwarmRadius;
+    base.reward=CONFIG.zSwarmReward; base.dmgToBase=CONFIG.zSwarmDmgBase; base.dmgToWall=CONFIG.zSwarmDmgWall;
   }
+  return base;
+}
 
-  function wallExistsAt(gx,gy){
-    return walls.some(w => w.x === gx && w.y === gy);
+function buildWave(waveNum){
+  let list = [];
+  let count = CONFIG.waveBaseCount + Math.floor(waveNum*CONFIG.waveCountPerWave);
+  let tankChance = Math.min(0.05 + waveNum*0.02, 0.35);
+  let fastChance = Math.min(0.1 + waveNum*0.015, 0.4);
+  let swarmChance = waveNum>=3 ? 0.25 : 0;
+
+  for(let i=0;i<count;i++){
+    let r = Math.random();
+    let kind='normal';
+    if(r < tankChance) kind='tank';
+    else if(r < tankChance+fastChance) kind='fast';
+    else if(r < tankChance+fastChance+swarmChance) kind='swarm';
+    list.push({kind, delay: i*(0.65/(1+waveNum*0.03))});
   }
+  return list;
+}
 
-  function distToBase(x,y){
-    return Math.hypot(x-CX, y-CY);
-  }
+function spawnPositionAround(){
+  const margin = 40;
+  const side = Math.floor(Math.random()*4);
+  let x,y;
+  if(side===0){ x=Math.random()*W; y=-margin; }
+  else if(side===1){ x=W+margin; y=Math.random()*H; }
+  else if(side===2){ x=Math.random()*W; y=H+margin; }
+  else { x=-margin; y=Math.random()*H; }
+  return {x,y};
+}
 
-  // ---------- Input handling ----------
-  let isPointerDown = false;
-  let lastPaintCell = null;
+function startWave(){
+  state.waveActive = true;
+  state.spawnQueue = buildWave(state.wave);
+  state.spawnTimer = 0;
+  showBanner('ВОЛНА '+state.wave, '', 1400);
+}
 
-  function getPointerPos(e){
-    const rect = canvas.getBoundingClientRect();
-    let clientX, clientY;
-    if(e.touches && e.touches.length){
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
+function screenToLogical(clientX, clientY){
+  const rect = canvas.getBoundingClientRect();
+  return { x: clientX-rect.left, y: clientY-rect.top };
+}
+
+function canPlaceWallAt(gx,gy){
+  const c = center();
+  const wx = gx*GRID, wy = gy*GRID;
+  const dist = Math.hypot(wx-c.x, wy-c.y);
+  if(dist < BASE_RADIUS+18) return false;
+  if(wx<10||wx>W-10||wy<10||wy>H-10) return false;
+  return true;
+}
+
+function placeWallCell(gx,gy){
+  const key = wallKey(gx,gy);
+  if(state.tool==='wall'){
+    if(wallSet.has(key)) return;
+    if(!canPlaceWallAt(gx,gy)) return;
+    if(state.coins < state.wallCost) return;
+    state.coins -= state.wallCost;
+    wallSet.add(key);
+    const w = gridToWorld(gx,gy);
+    state.walls.push({gx,gy,x:w.x,y:w.y,hp:CONFIG.wallHp,maxHp:CONFIG.wallHp});
+    updateHUD();
+  } else if(state.tool==='erase'){
+    if(!wallSet.has(key)) return;
+    wallSet.delete(key);
+    state.walls = state.walls.filter(w=>!(w.gx===gx&&w.gy===gy));
+  } else if(state.tool==='turret'){
+    if(state.coins < state.turretCost) return;
+    const w = gridToWorld(gx,gy);
+    const c = center();
+    const dist = Math.hypot(w.x-c.x,w.y-c.y);
+    if(dist < BASE_RADIUS+18) return;
+    for(const t of state.turrets){
+      if(Math.hypot(t.x-w.x,t.y-w.y) < TURRET_MIN_SPACING) return;
     }
-    return {
-      x: (clientX - rect.left) * (canvas.width / rect.width),
-      y: (clientY - rect.top) * (canvas.height / rect.height)
-    };
-  }
-
-  function tryPlaceWall(x,y){
-    if(state.mode !== 'wall') return;
-    const {x:gx, y:gy} = snapToGrid(x,y);
-    if(distToBase(gx,gy) < BASE_RADIUS + 20) return; // don't block base itself
-    if(wallExistsAt(gx,gy)) return;
-    if(state.coins < WALL_COST) return;
-    if(lastPaintCell && lastPaintCell.x === gx && lastPaintCell.y === gy) return;
-    state.coins -= WALL_COST;
-    walls.push({x:gx, y:gy, hp:WALL_MAXHP, maxhp:WALL_MAXHP});
-    lastPaintCell = {x:gx,y:gy};
+    state.coins -= state.turretCost;
+    const ts = turretStats();
+    state.turrets.push({x:w.x,y:w.y,cooldown:0,range:ts.range,dmg:ts.dmg,fireRate:ts.fireRate});
+    state.turretCost = Math.round(state.turretCost*CONFIG.turretCostGrowth);
     updateHUD();
   }
+}
 
-  function tryPlaceTurret(x,y){
-    if(state.mode !== 'turret') return;
-    if(state.coins < TURRET_COST) return;
-    if(distToBase(x,y) < BASE_RADIUS + 14) return;
-    // don't place on existing turret
-    for(const t of turrets){
-      if(Math.hypot(t.x-x, t.y-y) < 24) return;
-    }
-    state.coins -= TURRET_COST;
-    turrets.push({
-      x, y,
-      cooldown:0,
-      range:150,
-      fireRate:0.7,
-      damage:6
-    });
+let pointerDown = false;
+function handlePointerDown(e){
+  if(!state.running) return;
+  pointerDown = true;
+  const p = getPointer(e);
+  handleDrawPoint(p.x,p.y);
+}
+function handlePointerMove(e){
+  if(!pointerDown || !state.running) return;
+  const p = getPointer(e);
+  handleDrawPoint(p.x,p.y);
+}
+function handlePointerUp(){
+  pointerDown = false;
+  state.lastDrawCell = null;
+}
+function getPointer(e){
+  if(e.touches && e.touches.length>0){
+    return screenToLogical(e.touches[0].clientX, e.touches[0].clientY);
+  }
+  return screenToLogical(e.clientX, e.clientY);
+}
+function handleDrawPoint(x,y){
+  const g = gridOf(x,y);
+  const key = g.gx+','+g.gy;
+  if(state.lastDrawCell === key) return;
+  state.lastDrawCell = key;
+  placeWallCell(g.gx,g.gy);
+}
+
+canvas.addEventListener('mousedown', handlePointerDown);
+canvas.addEventListener('mousemove', handlePointerMove);
+window.addEventListener('mouseup', handlePointerUp);
+canvas.addEventListener('touchstart', function(e){ e.preventDefault(); handlePointerDown(e); }, {passive:false});
+canvas.addEventListener('touchmove', function(e){ e.preventDefault(); handlePointerMove(e); }, {passive:false});
+canvas.addEventListener('touchend', function(e){ e.preventDefault(); handlePointerUp(); }, {passive:false});
+
+const toolButtons = document.querySelectorAll('.tool-btn[data-tool]');
+toolButtons.forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    state.tool = btn.dataset.tool;
+    toolButtons.forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+document.getElementById('btn-upgrade').addEventListener('click', ()=>{
+  const cost = upgradeCost();
+  if(state.coins >= cost){
+    state.coins -= cost;
+    state.weaponLevel++;
     updateHUD();
-    state.mode = null;
-    setActiveButton(null);
   }
+});
 
-  function tryErase(x,y){
-    if(state.mode !== 'erase') return;
-    // erase closest wall or turret within radius
-    let closestWallIdx = -1, closestWallDist = 22;
-    walls.forEach((w,i)=>{
-      const d = Math.hypot(w.x-x, w.y-y);
-      if(d < closestWallDist){ closestWallDist = d; closestWallIdx = i; }
+function upgradeCost(){
+  return Math.round(CONFIG.weaponUpgradeCostBase * Math.pow(CONFIG.weaponUpgradeCostGrowth, state.weaponLevel-1));
+}
+
+function updateHUD(){
+  document.getElementById('coins').textContent = '◆ ' + state.coins;
+  const hpChip = document.getElementById('hp-chip');
+  hpChip.textContent = 'HP ' + Math.max(0,Math.ceil(state.baseHP));
+  hpChip.classList.toggle('low', state.baseHP < CONFIG.baseHpMax*0.3);
+  document.getElementById('wave-chip').textContent = 'Волна ' + state.wave;
+  document.getElementById('wall-cost').textContent = '◆'+state.wallCost;
+  document.getElementById('turret-cost').textContent = '◆'+state.turretCost;
+  document.getElementById('upgrade-cost').textContent = '◆'+upgradeCost();
+  document.getElementById('upgrade-lvl').textContent = 'ур.'+state.weaponLevel;
+
+  document.getElementById('btn-wall').disabled = state.coins < state.wallCost;
+  document.getElementById('btn-turret').disabled = state.coins < state.turretCost;
+  document.getElementById('btn-upgrade').disabled = state.coins < upgradeCost();
+}
+
+let bannerTimeout=null;
+function showBanner(big, small, duration){
+  const el = document.getElementById('banner');
+  el.style.transition='none';
+  el.innerHTML = '<div class="big">'+big+'</div>' + (small? '<div class="small">'+small+'</div>' : '');
+  el.style.opacity = 1;
+  if(bannerTimeout) clearTimeout(bannerTimeout);
+  bannerTimeout = setTimeout(()=>{ el.style.transition='opacity 0.6s'; el.style.opacity=0; }, duration||1500);
+}
+
+function nearestZombieInRange(x,y,range){
+  let best=null, bestD=range;
+  for(const z of state.zombies){
+    const d = Math.hypot(z.x-x, z.y-y);
+    if(d<=bestD){ bestD=d; best=z; }
+  }
+  return best;
+}
+
+function damageZombie(z, dmg){
+  z.hp -= dmg;
+  if(z.hp<=0 && !z.dead){
+    z.dead = true;
+    state.kills++;
+    const reward = z.reward;
+    state.coins += reward;
+    spawnFloatText(z.x,z.y,'+'+reward,'#f0c674');
+    spawnParticles(z.x,z.y, z.kind==='tank'?14:8);
+    updateHUD();
+  }
+}
+
+function spawnFloatText(x,y,text,color){
+  state.floatTexts.push({x,y,text,color,life:0.9,vy:-24});
+}
+function spawnParticles(x,y,count){
+  for(let i=0;i<count;i++){
+    const a = Math.random()*Math.PI*2;
+    const spd = 30+Math.random()*70;
+    state.particles.push({
+      x,y, vx:Math.cos(a)*spd, vy:Math.sin(a)*spd,
+      life:0.5+Math.random()*0.3,
+      color: Math.random()<0.5?'#6ee7a8':'#3a3f4a'
     });
-    if(closestWallIdx >= 0){
-      walls.splice(closestWallIdx,1);
-      return;
+  }
+}
+
+function triggerShake(mag){
+  state.shakeT = 0.25;
+  state.shakeMag = mag;
+}
+
+function findWallBlockingPath(z){
+  let best=null, bestD=Infinity;
+  const collisionRadius = GRID*0.5 + 2; // fence cell is thin, but still blocks by its footprint
+  for(const w of state.walls){
+    const d = Math.hypot(w.x-z.x, w.y-z.y);
+    if(d < collisionRadius+z.radius && d<bestD){ bestD=d; best=w; }
+  }
+  return best;
+}
+
+function update(dt){
+  const c = center();
+
+  if(!state.waveActive){
+    state.waveTimer += dt;
+    if(state.waveTimer >= CONFIG.betweenWaveTime){
+      state.waveTimer = 0;
+      startWave();
     }
-    let closestTurretIdx = -1, closestTurretDist = 26;
-    turrets.forEach((t,i)=>{
-      const d = Math.hypot(t.x-x, t.y-y);
-      if(d < closestTurretDist){ closestTurretDist = d; closestTurretIdx = i; }
-    });
-    if(closestTurretIdx >= 0){
-      turrets.splice(closestTurretIdx,1);
+  } else {
+    state.spawnTimer += dt;
+    while(state.spawnQueue.length>0 && state.spawnQueue[0].delay <= state.spawnTimer){
+      const item = state.spawnQueue.shift();
+      const pos = spawnPositionAround();
+      state.zombies.push(makeZombie(item.kind, pos));
     }
-  }
-
-  function handlePointerDown(e){
-    e.preventDefault();
-    if(state.gameOver) return;
-    isPointerDown = true;
-    lastPaintCell = null;
-    const pos = getPointerPos(e);
-    if(state.mode === 'wall') tryPlaceWall(pos.x,pos.y);
-    else if(state.mode === 'turret') tryPlaceTurret(pos.x,pos.y);
-    else if(state.mode === 'erase') tryErase(pos.x,pos.y);
-  }
-  function handlePointerMove(e){
-    if(!isPointerDown) return;
-    e.preventDefault();
-    const pos = getPointerPos(e);
-    if(state.mode === 'wall') tryPlaceWall(pos.x,pos.y);
-    else if(state.mode === 'erase') tryErase(pos.x,pos.y);
-  }
-  function handlePointerUp(e){
-    isPointerDown = false;
-    lastPaintCell = null;
-  }
-
-  canvas.addEventListener('mousedown', handlePointerDown);
-  canvas.addEventListener('mousemove', handlePointerMove);
-  window.addEventListener('mouseup', handlePointerUp);
-  canvas.addEventListener('touchstart', handlePointerDown, {passive:false});
-  canvas.addEventListener('touchmove', handlePointerMove, {passive:false});
-  canvas.addEventListener('touchend', handlePointerUp);
-  canvas.addEventListener('touchcancel', handlePointerUp);
-
-  // ---------- UI buttons ----------
-  const btnWall = document.getElementById('btn-wall');
-  const btnTurret = document.getElementById('btn-turret');
-  const btnErase = document.getElementById('btn-erase');
-  const btnUpgrade = document.getElementById('btn-upgrade');
-
-  function setActiveButton(mode){
-    [btnWall, btnTurret, btnErase].forEach(b => b.classList.remove('active'));
-    if(mode === 'wall') btnWall.classList.add('active');
-    if(mode === 'turret') btnTurret.classList.add('active');
-    if(mode === 'erase') btnErase.classList.add('active');
-  }
-
-  btnWall.addEventListener('click', ()=>{
-    state.mode = state.mode === 'wall' ? null : 'wall';
-    setActiveButton(state.mode);
-  });
-  btnTurret.addEventListener('click', ()=>{
-    state.mode = state.mode === 'turret' ? null : 'turret';
-    setActiveButton(state.mode);
-  });
-  btnErase.addEventListener('click', ()=>{
-    state.mode = state.mode === 'erase' ? null : 'erase';
-    setActiveButton(state.mode);
-  });
-  btnUpgrade.addEventListener('click', ()=>{
-    if(state.coins >= state.weaponUpgradeCost){
-      state.coins -= state.weaponUpgradeCost;
-      state.weaponLevel++;
-      state.weaponUpgradeCost = Math.round(state.weaponUpgradeCost * 1.6);
+    if(state.spawnQueue.length===0 && state.zombies.length===0){
+      state.waveActive = false;
+      state.wave++;
+      state.waveTimer = 0;
+      state.coins += CONFIG.waveClearBonusBase + state.wave*CONFIG.waveClearBonusPerWave;
       updateHUD();
+      showBanner('Волна отбита!', 'Следующая волна через '+CONFIG.betweenWaveTime+'с', 1800);
     }
-  });
-
-  // ---------- HUD ----------
-  function updateHUD(){
-    document.getElementById('hp-val').textContent = Math.max(0,Math.round(state.baseHP));
-    document.getElementById('coin-val').textContent = state.coins;
-    document.getElementById('wave-val').textContent = state.wave;
-    document.getElementById('wlvl-val').textContent = state.weaponLevel;
-    document.getElementById('upgrade-cost').textContent = state.weaponUpgradeCost;
-
-    btnWall.disabled = state.coins < WALL_COST;
-    btnTurret.disabled = state.coins < TURRET_COST;
-    btnUpgrade.disabled = state.coins < state.weaponUpgradeCost;
   }
 
-  function showWaveBanner(text){
-    const el = document.getElementById('wave-banner');
-    el.textContent = text;
-    el.style.opacity = '1';
-    setTimeout(()=>{ el.style.opacity = '0'; }, 1800);
-  }
+  for(const z of state.zombies){
+    if(z.dead) continue;
 
-  // ---------- Wave spawning ----------
-  function startWave(){
-    state.waveActive = true;
-    const count = 5 + state.wave * 3;
-    state.zombiesToSpawn = count;
-    state.spawnCooldown = 0;
-    showWaveBanner('Волна ' + state.wave + ' — ' + count + ' зомби');
-  }
-
-  function spawnZombie(){
-    const angle = Math.random() * Math.PI * 2;
-    const spawnDist = Math.max(W,H) * 0.62;
-    const x = CX + Math.cos(angle) * spawnDist;
-    const y = CY + Math.sin(angle) * spawnDist;
-    const hpBase = 12 + state.wave * 3;
-    const isFast = Math.random() < Math.min(0.3, state.wave*0.02);
-    zombies.push({
-      x, y,
-      hp: isFast ? hpBase*0.6 : hpBase,
-      maxhp: isFast ? hpBase*0.6 : hpBase,
-      speed: isFast ? 38 + Math.random()*10 : 20 + Math.random()*8,
-      radius: isFast ? 7 : 9,
-      targetWall: null,
-      attackCooldown: 0,
-      color: isFast ? '#e69a5e' : '#c96b6b'
-    });
-  }
-
-  // ---------- Combat helpers ----------
-  function findNearestZombieInRange(x,y,range){
-    let nearest = null, nd = range;
-    for(const z of zombies){
-      const d = Math.hypot(z.x-x, z.y-y);
-      if(d <= nd){ nd = d; nearest = z; }
-    }
-    return nearest;
-  }
-
-  function damageZombie(z, dmg){
-    z.hp -= dmg;
-    if(z.hp <= 0){
-      const idx = zombies.indexOf(z);
-      if(idx >= 0){
-        zombies.splice(idx,1);
-        const coinGain = 2 + Math.floor(state.wave*0.3);
-        state.coins += coinGain;
-        spawnParticles(z.x, z.y, '#5ee6a8', 6);
-        updateHUD();
+    const blocker = findWallBlockingPath(z);
+    if(blocker){
+      if(z._atkT===undefined) z._atkT = 0;
+      z._atkT -= dt;
+      if(z._atkT<=0){
+        blocker.hp -= z.dmgToWall;
+        z._atkT = 0.5;
+        spawnParticles(blocker.x,blocker.y,3);
+        if(blocker.hp<=0){
+          wallSet.delete(wallKey(blocker.gx,blocker.gy));
+          state.walls = state.walls.filter(w=>w!==blocker);
+          triggerShake(3);
+        }
       }
     } else {
-      spawnParticles(z.x, z.y, '#ffffff', 2);
-    }
-  }
+      const dx = c.x-z.x, dy=c.y-z.y;
+      const dist = Math.hypot(dx,dy)||1;
+      let spd = z.speed;
+      if(z.slowT>0){ spd*=0.5; z.slowT-=dt; }
+      z.vx = dx/dist*spd;
+      z.vy = dy/dist*spd;
+      z.x += z.vx*dt;
+      z.y += z.vy*dt;
 
-  function spawnParticles(x,y,color,count){
-    for(let i=0;i<count;i++){
-      particles.push({
-        x,y,
-        vx:(Math.random()-0.5)*80,
-        vy:(Math.random()-0.5)*80,
-        life:0.4,
-        maxlife:0.4,
-        color
-      });
-    }
-  }
-
-  // ---------- Update loop ----------
-  let lastTime = performance.now();
-
-  function update(dt){
-    if(state.gameOver) return;
-
-    // Wave management
-    if(!state.waveActive){
-      state.waveTimer -= dt;
-      if(state.waveTimer <= 0){
-        startWave();
-      }
-    } else {
-      state.spawnCooldown -= dt;
-      if(state.zombiesToSpawn > 0 && state.spawnCooldown <= 0){
-        spawnZombie();
-        state.zombiesToSpawn--;
-        state.spawnCooldown = Math.max(0.15, 0.7 - state.wave*0.015);
-      }
-      if(state.zombiesToSpawn <= 0 && zombies.length === 0){
-        state.waveActive = false;
-        state.wave++;
-        state.waveTimer = 6;
-        // small bonus for clearing wave
-        state.coins += 10;
-        updateHUD();
-      }
-    }
-
-    // Zombies movement / targeting
-    for(const z of zombies){
-      // find nearest obstacle: wall or base
-      // Check collision with walls first (closest wall on path)
-      let blockingWall = null;
-      let bd = Infinity;
-      for(const w of walls){
-        const d = Math.hypot(z.x-w.x, z.y-w.y);
-        if(d < bd){ bd = d; blockingWall = w; }
-      }
-      // if a wall is close enough to be "in the way" and closer than base, attack it
-      const distBase = Math.hypot(z.x-CX, z.y-CY);
-
-      let targetX = CX, targetY = CY, targetIsWall = false, targetWall = null;
-      if(blockingWall && bd < distBase - 4){
-        targetX = blockingWall.x; targetY = blockingWall.y;
-        targetIsWall = true; targetWall = blockingWall;
-      }
-
-      const dx = targetX - z.x;
-      const dy = targetY - z.y;
-      const dist = Math.hypot(dx,dy);
-      const stopDist = targetIsWall ? (WALL_SIZE*0.7) : (BASE_RADIUS + z.radius);
-
-      if(dist > stopDist){
-        const nx = dx/dist, ny = dy/dist;
-        z.x += nx * z.speed * dt;
-        z.y += ny * z.speed * dt;
-      } else {
-        // attack
-        z.attackCooldown -= dt;
-        if(z.attackCooldown <= 0){
-          z.attackCooldown = 0.6;
-          if(targetIsWall && targetWall){
-            targetWall.hp -= 8;
-            spawnParticles(targetWall.x, targetWall.y, '#8a8d98', 4);
-            if(targetWall.hp <= 0){
-              const idx = walls.indexOf(targetWall);
-              if(idx>=0) walls.splice(idx,1);
-            }
-          } else if(!targetIsWall){
-            state.baseHP -= 6;
-            spawnParticles(CX,CY,'#e65e5e',6);
-            updateHUD();
-            if(state.baseHP <= 0){
-              triggerGameOver();
-            }
+      if(dist < BASE_RADIUS+z.radius){
+        if(z._atkT===undefined) z._atkT=0;
+        z._atkT -= dt;
+        if(z._atkT<=0){
+          state.baseHP -= z.dmgToBase;
+          state._baseDmgFlash = 0.15;
+          z._atkT = 0.7;
+          triggerShake(6);
+          updateHUD();
+          if(state.baseHP<=0){
+            gameOver();
+            return;
           }
         }
       }
     }
+  }
+  state.zombies = state.zombies.filter(z=>!z.dead);
 
-    // Base weapon auto-fire
-    baseWeapon.fireCooldown -= dt;
-    if(baseWeapon.fireCooldown <= 0){
-      const target = findNearestZombieInRange(CX,CY, baseWeapon.getRange());
+  const ws = weaponStatsForLevel(state.weaponLevel);
+  baseWeapon.cooldown -= dt;
+  if(baseWeapon.cooldown<=0){
+    const target = nearestZombieInRange(c.x,c.y,ws.range);
+    if(target){
+      fireBullet(c.x,c.y,target,ws.dmg,'#6ee7a8');
+      baseWeapon.cooldown = ws.fireRate;
+    }
+  }
+
+  for(const t of state.turrets){
+    t.cooldown -= dt;
+    if(t.cooldown<=0){
+      const target = nearestZombieInRange(t.x,t.y,t.range);
       if(target){
-        const ang = Math.atan2(target.y-CY, target.x-CX);
-        bullets.push({
-          x:CX,y:CY,
-          vx:Math.cos(ang)*260, vy:Math.sin(ang)*260,
-          damage: baseWeapon.getDamage(),
-          life:1.2,
-          color:'#5ee6a8',
-          fromBase:true
-        });
-        baseWeapon.fireCooldown = baseWeapon.getFireRate();
+        fireBullet(t.x,t.y,target,t.dmg,'#8ecbff');
+        t.cooldown = t.fireRate;
       }
-    }
-
-    // Turrets auto-fire
-    for(const t of turrets){
-      t.cooldown -= dt;
-      if(t.cooldown <= 0){
-        const target = findNearestZombieInRange(t.x,t.y,t.range);
-        if(target){
-          const ang = Math.atan2(target.y-t.y, target.x-t.x);
-          bullets.push({
-            x:t.x,y:t.y,
-            vx:Math.cos(ang)*320, vy:Math.sin(ang)*320,
-            damage:t.damage,
-            life:1.0,
-            color:'#e6c15e',
-            fromBase:false
-          });
-          t.cooldown = t.fireRate;
-        }
-      }
-    }
-
-    // Bullets movement + collision
-    for(let i=bullets.length-1;i>=0;i--){
-      const b = bullets[i];
-      b.x += b.vx*dt;
-      b.y += b.vy*dt;
-      b.life -= dt;
-      let hit = false;
-      for(const z of zombies){
-        if(Math.hypot(b.x-z.x,b.y-z.y) < z.radius+3){
-          damageZombie(z,b.damage);
-          hit = true;
-          break;
-        }
-      }
-      if(hit || b.life <= 0 || b.x<0||b.x>W||b.y<0||b.y>H){
-        bullets.splice(i,1);
-      }
-    }
-
-    // Particles
-    for(let i=particles.length-1;i>=0;i--){
-      const p = particles[i];
-      p.x += p.vx*dt;
-      p.y += p.vy*dt;
-      p.life -= dt;
-      if(p.life<=0) particles.splice(i,1);
     }
   }
 
-  function triggerGameOver(){
-    state.gameOver = true;
-    document.getElementById('msg-title').textContent = 'База уничтожена';
-    document.getElementById('msg-text').textContent = 'Вы продержались ' + (state.wave-1) + ' волн. Стройте стены заранее по кругу и вовремя прокачивайте оружие.';
-    document.getElementById('msg-overlay').style.display = 'flex';
-  }
-
-  // ---------- Rendering ----------
-  function draw(){
-    ctx.clearRect(0,0,W,H);
-
-    // subtle grid background
-    ctx.strokeStyle = 'rgba(255,255,255,0.025)';
-    ctx.lineWidth = 1;
-    const gridStep = 40;
-    for(let x=0;x<W;x+=gridStep){
-      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
-    }
-    for(let y=0;y<H;y+=gridStep){
-      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
-    }
-
-    // range preview for turret placement mode
-    if(state.mode === 'turret'){
-      // nothing dynamic without pointer tracking; skip for simplicity
-    }
-
-    // walls
-    for(const w of walls){
-      const ratio = w.hp / w.maxhp;
-      ctx.fillStyle = ratio > 0.5 ? '#3d4048' : (ratio > 0.2 ? '#5a4a3a' : '#5a3a3a');
-      ctx.fillRect(w.x - WALL_SIZE/2, w.y - WALL_SIZE/2, WALL_SIZE-2, WALL_SIZE-2);
-      ctx.strokeStyle = '#232429';
-      ctx.strokeRect(w.x - WALL_SIZE/2, w.y - WALL_SIZE/2, WALL_SIZE-2, WALL_SIZE-2);
-    }
-
-    // turrets
-    for(const t of turrets){
-      ctx.beginPath();
-      ctx.fillStyle = '#e6c15e';
-      ctx.arc(t.x,t.y,9,0,Math.PI*2);
-      ctx.fill();
-      ctx.strokeStyle = '#2a2c33';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      // small barrel
-      ctx.strokeStyle = '#8a7135';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(t.x,t.y);
-      ctx.lineTo(t.x+10,t.y);
-      ctx.stroke();
-    }
-
-    // base
-    ctx.beginPath();
-    ctx.fillStyle = '#1f2027';
-    ctx.arc(CX,CY,BASE_RADIUS,0,Math.PI*2);
-    ctx.fill();
-    ctx.strokeStyle = '#5ee6a8';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // base hp ring
-    const hpRatio = Math.max(0, state.baseHP/state.baseMaxHP);
-    ctx.beginPath();
-    ctx.strokeStyle = hpRatio > 0.4 ? '#5ee6a8' : '#e65e5e';
-    ctx.lineWidth = 4;
-    ctx.arc(CX,CY,BASE_RADIUS+6, -Math.PI/2, -Math.PI/2 + Math.PI*2*hpRatio);
-    ctx.stroke();
-
-    // weapon range indicator (subtle)
-    ctx.beginPath();
-    ctx.strokeStyle = 'rgba(94,230,168,0.08)';
-    ctx.lineWidth = 1;
-    ctx.arc(CX,CY, baseWeapon.getRange(), 0, Math.PI*2);
-    ctx.stroke();
-
-    // zombies
-    for(const z of zombies){
-      ctx.beginPath();
-      ctx.fillStyle = z.color;
-      ctx.arc(z.x,z.y,z.radius,0,Math.PI*2);
-      ctx.fill();
-      // hp bar
-      const w2 = z.radius*2.2;
-      const ratio = Math.max(0,z.hp/z.maxhp);
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.fillRect(z.x-w2/2, z.y-z.radius-8, w2, 3);
-      ctx.fillStyle = '#5ee6a8';
-      ctx.fillRect(z.x-w2/2, z.y-z.radius-8, w2*ratio, 3);
-    }
-
-    // bullets
-    for(const b of bullets){
-      ctx.beginPath();
-      ctx.fillStyle = b.color;
-      ctx.arc(b.x,b.y,3,0,Math.PI*2);
-      ctx.fill();
-    }
-
-    // particles
-    for(const p of particles){
-      const alpha = Math.max(0,p.life/p.maxlife);
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = p.color;
-      ctx.fillRect(p.x-2,p.y-2,4,4);
-      ctx.globalAlpha = 1;
-    }
-
-    // wave countdown text if between waves
-    if(!state.waveActive && !state.gameOver){
-      ctx.fillStyle = 'rgba(232,232,234,0.6)';
-      ctx.font = '13px -apple-system, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('Следующая волна через ' + Math.ceil(state.waveTimer) + 'с', CX, CY + BASE_RADIUS + 40);
+  for(const b of state.bullets){
+    b.t += dt;
+    if(b.t>=b.dur){
+      b.hit = true;
+      if(b.target && !b.target.dead){
+        damageZombie(b.target, b.dmg);
+      }
     }
   }
+  state.bullets = state.bullets.filter(b=>!b.hit);
 
-  // ---------- Main loop ----------
-  function loop(now){
-    const dt = Math.min(0.05, (now - lastTime)/1000);
-    lastTime = now;
-    if(state.running){
-      update(dt);
-      draw();
-    }
-    requestAnimationFrame(loop);
+  for(const p of state.particles){
+    p.life -= dt;
+    p.x += p.vx*dt;
+    p.y += p.vy*dt;
+    p.vx *= 0.92; p.vy*=0.92;
   }
+  state.particles = state.particles.filter(p=>p.life>0);
 
-  // ---------- Restart ----------
-  document.getElementById('msg-btn').addEventListener('click', ()=>{
-    resetGame();
+  for(const f of state.floatTexts){
+    f.life -= dt;
+    f.y += f.vy*dt;
+  }
+  state.floatTexts = state.floatTexts.filter(f=>f.life>0);
+
+  if(state.shakeT>0) state.shakeT -= dt;
+}
+
+function fireBullet(x,y,target,dmg,color){
+  const dist = Math.hypot(target.x-x, target.y-y);
+  const speed = 520;
+  state.bullets.push({
+    x0:x,y0:y, x:target.x, y:target.y, target, dmg, color,
+    t:0, dur: Math.max(0.03,dist/speed)
   });
+}
 
-  function resetGame(){
-    state.coins = 50;
-    state.baseHP = 100;
-    state.baseMaxHP = 100;
-    state.wave = 1;
-    state.waveActive = false;
-    state.waveTimer = 3;
-    state.weaponLevel = 1;
-    state.weaponUpgradeCost = 30;
-    state.mode = null;
-    state.gameOver = false;
-    state.zombiesToSpawn = 0;
-    state.spawnCooldown = 0;
-    walls = [];
-    turrets = [];
-    zombies = [];
-    bullets = [];
-    particles = [];
-    baseWeapon.fireCooldown = 0;
-    setActiveButton(null);
-    document.getElementById('msg-overlay').style.display = 'none';
-    updateHUD();
+function gameOver(){
+  state.running = false;
+  document.getElementById('final-wave').textContent = state.wave;
+  document.getElementById('final-kills').textContent = state.kills;
+  document.getElementById('gameover-overlay').style.display='flex';
+}
+
+// ---------- Ground/terrain background (grass with dirt patches) ----------
+// Generated once and cached to an offscreen canvas so per-frame cost stays flat.
+let groundCanvas = null;
+let groundCtx = null;
+let groundSeeds = null; // dirt patch + vegetation speck positions, regenerated on resize
+
+function seededRandom(seed){
+  // simple deterministic PRNG so the terrain doesn't reshuffle every resize jitter
+  let s = seed % 2147483647;
+  if (s <= 0) s += 2147483646;
+  return function(){
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+function buildGroundLayer(){
+  groundCanvas = document.createElement('canvas');
+  groundCanvas.width = W; groundCanvas.height = H;
+  groundCtx = groundCanvas.getContext('2d');
+  const g = groundCtx;
+  const rnd = seededRandom(1337);
+
+  // base grass fill — muted olive/khaki, matches reference tone
+  g.fillStyle = '#5a5c3e';
+  g.fillRect(0,0,W,H);
+
+  // subtle mottling: soft irregular patches of slightly darker/lighter grass
+  const patchCount = Math.floor((W*H)/9000);
+  for(let i=0;i<patchCount;i++){
+    const x = rnd()*W, y = rnd()*H;
+    const r = 18+rnd()*46;
+    const lighter = rnd()<0.5;
+    g.fillStyle = lighter ? 'rgba(120,118,80,0.10)' : 'rgba(58,56,36,0.14)';
+    g.beginPath();
+    g.ellipse(x,y,r,r*0.6,rnd()*Math.PI,0,Math.PI*2);
+    g.fill();
   }
 
-  // ---------- Init ----------
-  updateHUD();
+  // dirt patches: irregular brown blobs, like worn paths/bare earth
+  const dirtCount = Math.floor((W*H)/26000);
+  for(let i=0;i<dirtCount;i++){
+    const x = rnd()*W, y = rnd()*H;
+    const r = 22+rnd()*40;
+    g.fillStyle = 'rgba(90,66,42,0.5)';
+    g.beginPath();
+    const pts = 7+Math.floor(rnd()*3);
+    for(let p=0;p<pts;p++){
+      const ang = (p/pts)*Math.PI*2;
+      const rr = r*(0.7+rnd()*0.5);
+      const px = x+Math.cos(ang)*rr, py = y+Math.sin(ang)*rr*0.7;
+      if(p===0) g.moveTo(px,py); else g.lineTo(px,py);
+    }
+    g.closePath();
+    g.fill();
+    // darker edge shading inside dirt patch
+    g.fillStyle = 'rgba(60,44,28,0.25)';
+    g.beginPath();
+    g.ellipse(x,y,r*0.5,r*0.35,0,0,Math.PI*2);
+    g.fill();
+  }
+
+  // fine vegetation specks scattered across grass (tiny tufts / pebbles)
+  const speckCount = Math.floor((W*H)/900);
+  for(let i=0;i<speckCount;i++){
+    const x = rnd()*W, y = rnd()*H;
+    const light = rnd();
+    if(light<0.5){
+      g.fillStyle = 'rgba(150,148,90,0.55)'; // dry grass tuft
+      g.fillRect(x, y, 2, 3);
+    } else if(light<0.8){
+      g.fillStyle = 'rgba(40,50,30,0.5)'; // dark grass tuft
+      g.fillRect(x, y, 2, 2);
+    } else {
+      g.fillStyle = 'rgba(160,155,145,0.4)'; // small pebble/debris
+      g.fillRect(x, y, 1, 1);
+    }
+  }
+
+  groundSeeds = true;
+}
+
+function drawGrid(){
+  if(!groundCanvas || groundCanvas.width!==W || groundCanvas.height!==H){
+    buildGroundLayer();
+  }
+  ctx.drawImage(groundCanvas,0,0);
+}
+
+function drawBase(){
+  const c = center();
+  const ws = weaponStatsForLevel(state.weaponLevel);
+  const time = performance.now()/1000;
+
+  // range indicator: thin dashed circle, barely visible
+  ctx.save();
+  ctx.strokeStyle = 'rgba(200,190,150,0.10)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2,6]);
+  ctx.beginPath();
+  ctx.arc(c.x,c.y,ws.range,0,Math.PI*2);
+  ctx.stroke();
+  ctx.restore();
+
+  const hpRatio = state.baseHP/CONFIG.baseHpMax;
+  const dmgFlash = state._baseDmgFlash||0;
+  const alertColor = hpRatio<0.3 ? '#c0453f' : '#d8cfa8';
+
+  // find aim target for guard figure orientation
+  const guardTarget = nearestZombieInRange(c.x,c.y,ws.range);
+  let guardAngle = state._guardAngle===undefined ? -Math.PI/2 : state._guardAngle;
+  if(guardTarget){
+    guardAngle = Math.atan2(guardTarget.y-c.y, guardTarget.x-c.x);
+  }
+  state._guardAngle = guardAngle;
+
+  ctx.save();
+  ctx.translate(c.x,c.y);
+
+  // ---- ground shadow ----
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(0, BASE_RADIUS*0.55, BASE_RADIUS*0.85, BASE_RADIUS*0.28, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // ---- weathered wooden shack, small scale ----
+  const bw = BASE_RADIUS*0.95;   // building half-width
+  const bh = BASE_RADIUS*0.62;   // wall height
+  const roofH = BASE_RADIUS*0.42;
+  const woodPlank = dmgFlash>0 ? '#5a3a34' : '#4a3c2c';
+  const woodDark  = dmgFlash>0 ? '#3d2925' : '#332a1f';
+
+  // back wall block
+  ctx.fillStyle = woodPlank;
+  ctx.strokeStyle = woodDark;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.rect(-bw, -bh*0.1, bw*2, bh);
+  ctx.fill();
+  ctx.stroke();
+
+  // plank lines (vertical boards, weathered look)
+  ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+  ctx.lineWidth = 0.6;
+  for(let px=-bw+bw*0.28; px<bw; px+=bw*0.28){
+    ctx.beginPath();
+    ctx.moveTo(px, -bh*0.1); ctx.lineTo(px, bh*0.9);
+    ctx.stroke();
+  }
+
+  // sloped roof, dark corrugated tone
+  ctx.beginPath();
+  ctx.moveTo(-bw*1.08, -bh*0.1);
+  ctx.lineTo(-bw*0.15, -bh*0.1-roofH);
+  ctx.lineTo(bw*1.08, -bh*0.1);
+  ctx.closePath();
+  ctx.fillStyle = '#26241c';
+  ctx.fill();
+  ctx.strokeStyle = woodDark;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // roof ridge highlight
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-bw*1.02, -bh*0.16); ctx.lineTo(-bw*0.2, -bh*0.1-roofH+2);
+  ctx.stroke();
+
+  // door, planked and slightly ajar look
+  const doorW = bw*0.44, doorH = bh*0.7;
+  ctx.fillStyle = '#1c1712';
+  ctx.fillRect(-doorW/2+bw*0.1, bh*0.9-doorH, doorW, doorH);
+  ctx.strokeStyle = woodDark;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(-doorW/2+bw*0.1, bh*0.9-doorH, doorW, doorH);
+
+  // small paned window, faint warm light
+  const winPulse = 0.3+0.15*Math.sin(time*1.6);
+  ctx.fillStyle = `rgba(214,180,110,${winPulse})`;
+  ctx.fillRect(-bw*0.78, bh*0.05, bw*0.32, bw*0.26);
+  ctx.strokeStyle = woodDark;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(-bw*0.78, bh*0.05, bw*0.32, bw*0.26);
+  // window cross-bar
+  ctx.beginPath();
+  ctx.moveTo(-bw*0.78+bw*0.16, bh*0.05); ctx.lineTo(-bw*0.78+bw*0.16, bh*0.05+bw*0.26);
+  ctx.stroke();
+
+  // radiation/warning sign on the wall, small accent nod to the reference art
+  ctx.save();
+  ctx.translate(bw*0.55, bh*0.35);
+  ctx.fillStyle = '#3a3220';
+  ctx.beginPath();
+  ctx.arc(0,0,bw*0.16,0,Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = alertColor;
+  ctx.beginPath();
+  ctx.arc(0,0,bw*0.16*0.35,0,Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.restore();
+
+  // ---- guard figure standing in front of the door ----
+  drawGuard(c.x, c.y + BASE_RADIUS*0.7, guardAngle, time, guardTarget);
+
+  // hp bar above base
+  const barW = 56, barH=4;
+  ctx.save();
+  ctx.translate(c.x-barW/2, c.y - bh - roofH - 20);
+  ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0.5,0.5,barW-1,barH-1);
+  ctx.fillStyle = hpRatio<0.3 ? '#c0453f' : '#8a9a5a';
+  ctx.fillRect(1,1,(barW-2)*Math.max(0,hpRatio),barH-2);
+  ctx.restore();
+
+  if(state._baseDmgFlash>0) state._baseDmgFlash -= 1/60;
+}
+
+// small humanoid figure defending the base: head, torso, arms, legs
+// idles with a breathing sway; faces + raises weapon arm toward guardTarget
+function drawGuard(x, y, angle, time, hasTarget){
+  const facingRight = Math.cos(angle) >= 0;
+  const dir = facingRight ? 1 : -1;
+
+  ctx.save();
+  ctx.translate(x, y);
+
+  const bob = Math.sin(time*3)*0.6; // idle breathing bob
+  ctx.translate(0, bob);
+
+  const skin = '#c99d76';
+  const suit = '#4a5238';      // olive/khaki field jacket
+  const suitDark = '#343a26';
+  const pants = '#3f4530';
+  const helmet = '#2e3320';
+  const rifleWood = '#5a4632';
+  const rifleMetal = '#8a8d85';
+
+  // legs (slightly apart stance)
+  ctx.strokeStyle = pants;
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-3, 2); ctx.lineTo(-4, 12);
+  ctx.moveTo(3, 2); ctx.lineTo(4, 12);
+  ctx.stroke();
+  // boots
+  ctx.strokeStyle = '#1e1c16';
+  ctx.lineWidth = 3.4;
+  ctx.beginPath();
+  ctx.moveTo(-4, 12); ctx.lineTo(-4, 13);
+  ctx.moveTo(4, 12); ctx.lineTo(4, 13);
+  ctx.stroke();
+
+  // torso (field jacket)
+  ctx.fillStyle = suit;
+  ctx.strokeStyle = suitDark;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-5, 2);
+  ctx.lineTo(-6, -9);
+  ctx.lineTo(6, -9);
+  ctx.lineTo(5, 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // chest strap / gear webbing
+  ctx.strokeStyle = suitDark;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-4,-8); ctx.lineTo(3,1);
+  ctx.stroke();
+  // small pouch detail
+  ctx.fillStyle = suitDark;
+  ctx.fillRect(-3,-3,2.4,3);
+
+  // back (non-weapon) arm
+  ctx.strokeStyle = suit;
+  ctx.lineWidth = 3;
+  ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(-5*dir, -6);
+  ctx.lineTo(-8*dir, 0);
+  ctx.stroke();
+
+  // head
+  ctx.fillStyle = skin;
+  ctx.strokeStyle = suitDark;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(0, -13, 4.2, 0, Math.PI*2);
+  ctx.fill();
+  ctx.stroke();
+
+  // helmet dome + brim
+  ctx.fillStyle = helmet;
+  ctx.beginPath();
+  ctx.arc(0, -13.8, 4.6, Math.PI*0.05, Math.PI*0.95, true);
+  ctx.fill();
+  ctx.strokeStyle = suitDark;
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(-4.6,-13.2); ctx.lineTo(4.6,-13.2);
+  ctx.stroke();
+
+  // weapon arm + rifle, aimed toward target (or resting if idle)
+  ctx.save();
+  ctx.translate(5*dir, -7);
+  const aimAngle = hasTarget ? angle : (facingRight? -0.15 : Math.PI+0.15);
+  ctx.rotate(aimAngle);
+  // arm
+  ctx.strokeStyle = suit;
+  ctx.lineWidth = 3;
+  ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(0,0); ctx.lineTo(7,0);
+  ctx.stroke();
+  // rifle stock (wood tone) + barrel (metal tone) — reads as a long gun, not a pistol
+  ctx.strokeStyle = rifleWood;
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(2,1.2); ctx.lineTo(9,0.6);
+  ctx.stroke();
+  ctx.strokeStyle = rifleMetal;
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(6,0); ctx.lineTo(18,0);
+  ctx.stroke();
+  // small foregrip/magazine detail
+  ctx.strokeStyle = rifleWood;
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(9,0.5); ctx.lineTo(9,3.5);
+  ctx.stroke();
+  // muzzle flash when about to fire
+  if(hasTarget){
+    ctx.fillStyle = `rgba(230,190,110,${0.5+0.4*Math.sin(time*10)})`;
+    ctx.beginPath();
+    ctx.arc(18,0,1.6,0,Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  ctx.restore();
+}
+
+function drawWalls(){
+  // Chain-link fence style, matching the reference: thin dark posts + diamond mesh pattern.
+  // Each placed cell is a short fence segment; damage darkens/frays the mesh.
+  for(const w of state.walls){
+    const ratio = w.hp/w.maxHp;
+    ctx.save();
+    ctx.translate(w.x,w.y);
+    const s = GRID; // full cell footprint, fence is thin so it reads as a line of posts
+
+    // ground shadow sliver
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.fillRect(-s/2, s*0.28, s, 1.5);
+
+    const postColor = ratio>0.4 ? '#6b7280' : '#5a4a42';
+    const meshColor = ratio>0.4 ? 'rgba(150,158,168,0.55)' : 'rgba(120,95,80,0.45)';
+
+    // corner posts
+    ctx.strokeStyle = postColor;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-s/2+0.5, -s/2); ctx.lineTo(-s/2+0.5, s/2);
+    ctx.moveTo(s/2-0.5, -s/2); ctx.lineTo(s/2-0.5, s/2);
+    ctx.stroke();
+
+    // top and bottom rails
+    ctx.beginPath();
+    ctx.moveTo(-s/2, -s/2+0.5); ctx.lineTo(s/2, -s/2+0.5);
+    ctx.moveTo(-s/2, s/2-0.5); ctx.lineTo(s/2, s/2-0.5);
+    ctx.stroke();
+
+    // diamond mesh: crossing diagonal lines, chain-link look
+    ctx.strokeStyle = meshColor;
+    ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(-s/2,-s/2); ctx.lineTo(s/2,s/2);
+    ctx.moveTo(s/2,-s/2); ctx.lineTo(-s/2,s/2);
+    ctx.moveTo(-s/2,0); ctx.lineTo(0,-s/2);
+    ctx.moveTo(0,-s/2); ctx.lineTo(s/2,0);
+    ctx.moveTo(s/2,0); ctx.lineTo(0,s/2);
+    ctx.moveTo(0,s/2); ctx.lineTo(-s/2,0);
+    ctx.stroke();
+
+    // damage: torn mesh gap
+    if(ratio<=0.4){
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-s*0.15,-s*0.2); ctx.lineTo(s*0.1,s*0.15);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+}
+
+function drawTurrets(){
+  for(const t of state.turrets){
+    ctx.save();
+    ctx.translate(t.x,t.y);
+
+    // aim direction: toward nearest zombie in range, else last known angle
+    let angle = t._angle || 0;
+    const target = nearestZombieInRange(t.x,t.y,t.range);
+    if(target){
+      angle = Math.atan2(target.y-t.y, target.x-t.x);
+      t._angle = angle;
+    }
+
+    // ground shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(0, 8, 10, 3, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // tripod legs (static, non-rotating base)
+    ctx.strokeStyle = '#4a5568';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0,-2); ctx.lineTo(-9,8);
+    ctx.moveTo(0,-2); ctx.lineTo(9,8);
+    ctx.moveTo(0,-2); ctx.lineTo(0,9);
+    ctx.stroke();
+
+    // mount base (small octagon-ish plate)
+    ctx.fillStyle = '#232733';
+    ctx.strokeStyle = '#8ecbff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0,-3,6,0,Math.PI*2);
+    ctx.fill();
+    ctx.stroke();
+
+    // rotating turret head
+    ctx.save();
+    ctx.translate(0,-3);
+    ctx.rotate(angle);
+
+    // turret body
+    ctx.fillStyle = '#2d3340';
+    ctx.strokeStyle = '#8ecbff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.rect(-5,-4,10,8);
+    ctx.fill();
+    ctx.stroke();
+
+    // barrel
+    ctx.strokeStyle = '#c9ccd3';
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(3,0); ctx.lineTo(15,0);
+    ctx.stroke();
+
+    // small indicator light, pulses while a target is tracked
+    if(target){
+      const pulse = 0.5+0.5*Math.sin(performance.now()/120);
+      ctx.fillStyle = `rgba(142,203,255,${0.5+0.5*pulse})`;
+      ctx.beginPath();
+      ctx.arc(-2,-2,1.4,0,Math.PI*2);
+      ctx.fill();
+    }
+
+    ctx.restore(); // turret head rotation
+    ctx.restore(); // world translate
+  }
+}
+
+function drawZombies(){
+  const time = performance.now()/1000;
+  for(const z of state.zombies){
+    ctx.save();
+    ctx.translate(z.x,z.y);
+
+    const angle = (z.vx||z.vy) ? Math.atan2(z.vy,z.vx) : Math.PI/2;
+    const facingRight = Math.cos(angle) >= 0;
+    const dir = facingRight ? 1 : -1;
+    const moving = Math.hypot(z.vx,z.vy) > 1;
+    const walkSpeed = z.kind==='fast' ? 9 : (z.kind==='tank'? 4 : 7);
+    const phase = moving ? time*walkSpeed + (z._phaseOffset||(z._phaseOffset=Math.random()*10)) : 0;
+    const swing = Math.sin(phase);
+
+    let bodyColor = '#5a7d4a';   // sickly green, normal
+    let darkColor = '#3d5533';
+    if(z.kind==='fast'){ bodyColor='#8a6a3a'; darkColor='#5c4726'; }
+    else if(z.kind==='tank'){ bodyColor='#5a3d63'; darkColor='#3c2942'; }
+    else if(z.kind==='swarm'){ bodyColor='#6b4a4a'; darkColor='#472f2f'; }
+
+    const scale = z.radius/9; // baseline scale relative to normal zombie radius
+
+    ctx.save();
+    ctx.scale(scale, scale);
+
+    // ground contact shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(0, 11, 7, 2.4, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // legs: swing opposite phase, bent at slight angle (shambling)
+    ctx.strokeStyle = darkColor;
+    ctx.lineWidth = 2.6;
+    ctx.lineCap = 'round';
+    const legSwing = moving ? swing*4 : 0;
+    ctx.beginPath();
+    ctx.moveTo(-2, 2); ctx.lineTo(-2+legSwing, 10);
+    ctx.moveTo(2, 2); ctx.lineTo(2-legSwing, 10);
+    ctx.stroke();
+
+    // torso: slight forward lean (zombie hunch), rotated by facing
+    ctx.save();
+    ctx.rotate(facingRight ? 0.12 : -0.12);
+    ctx.fillStyle = bodyColor;
+    ctx.strokeStyle = darkColor;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-4, 2);
+    ctx.lineTo(-5, -6);
+    ctx.lineTo(5, -6);
+    ctx.lineTo(4, 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    // arms: reaching forward toward the base (classic zombie pose), slight bob
+    ctx.strokeStyle = bodyColor;
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = 'round';
+    const armLift = moving ? Math.sin(phase*0.5)*1.2 : 0;
+    ctx.beginPath();
+    // front arm reaching out in facing direction
+    ctx.moveTo(3*dir, -4);
+    ctx.lineTo(9*dir, -3+armLift);
+    // back arm trailing
+    ctx.moveTo(-3*dir, -4);
+    ctx.lineTo(-7*dir, 0-armLift);
+    ctx.stroke();
+
+    // head, tilted slightly
+    ctx.fillStyle = bodyColor;
+    ctx.strokeStyle = darkColor;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(0.5*dir, -9, 3.4, 0, Math.PI*2);
+    ctx.fill();
+    ctx.stroke();
+
+    // single glowing eye toward direction of travel
+    ctx.fillStyle = z.kind==='tank' ? '#d9a5ff' : '#e2555f';
+    ctx.beginPath();
+    ctx.arc(1.6*dir, -9.2, 0.9, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.restore(); // end scale
+
+    // hp bar
+    if(z.hp<z.maxHp){
+      const barW = z.radius*2.2;
+      ctx.save();
+      ctx.translate(-barW/2, -z.radius-10);
+      ctx.fillStyle='#26292f';
+      ctx.fillRect(0,0,barW,3);
+      ctx.fillStyle='#e2555f';
+      ctx.fillRect(0,0,barW*Math.max(0,z.hp/z.maxHp),3);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+}
+
+function drawBullets(){
+  for(const b of state.bullets){
+    const t = Math.min(1,b.t/b.dur);
+    const x = b.x0 + (b.x-b.x0)*t;
+    const y = b.y0 + (b.y-b.y0)*t;
+    const dx = b.x-b.x0, dy = b.y-b.y0;
+    const len = Math.hypot(dx,dy)||1;
+    const ux = dx/len, uy = dy/len;
+    const tailLen = 7;
+    ctx.save();
+    ctx.strokeStyle = b.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x - ux*tailLen, y - uy*tailLen);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawParticles(){
+  for(const p of state.particles){
+    ctx.save();
+    ctx.globalAlpha = Math.max(0,p.life/0.8);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x-2,p.y-2,4,4);
+    ctx.restore();
+  }
+}
+
+function drawFloatTexts(){
+  for(const f of state.floatTexts){
+    ctx.save();
+    ctx.globalAlpha = Math.max(0,f.life/0.9);
+    ctx.fillStyle = f.color;
+    ctx.font = 'bold 12px monospace';
+    ctx.textAlign='center';
+    ctx.fillText(f.text, f.x, f.y);
+    ctx.restore();
+  }
+}
+
+function drawPreview(){
+  // intentionally minimal: no decorative ring around the base
+}
+
+function render(){
+  ctx.save();
+  if(state.shakeT>0){
+    const mag = state.shakeMag*(state.shakeT/0.25);
+    ctx.translate((Math.random()-0.5)*mag, (Math.random()-0.5)*mag);
+  }
+  ctx.clearRect(-20,-20,W+40,H+40);
+  drawGrid();
+  drawPreview();
+  drawWalls();
+  drawTurrets();
+  drawBase();
+  drawZombies();
+  drawBullets();
+  drawParticles();
+  drawFloatTexts();
+  ctx.restore();
+}
+
+function loop(ts){
+  if(!state.lastTime) state.lastTime = ts;
+  let dt = (ts-state.lastTime)/1000;
+  state.lastTime = ts;
+  dt = Math.min(dt, 0.05);
+
+  if(state.running){
+    update(dt);
+  }
+  render();
   requestAnimationFrame(loop);
+}
+
+function resetState(){
+  state.coins=CONFIG.startCoins;
+  state.baseHP=CONFIG.baseHpMax;
+  state.wave=1;
+  state.waveActive=false;
+  state.waveTimer=2;
+  state.kills=0;
+  state.weaponLevel=1;
+  state.wallCost=CONFIG.wallCost;
+  state.turretCost=CONFIG.turretCostBase;
+  state.walls=[];
+  state.turrets=[];
+  state.zombies=[];
+  state.bullets=[];
+  state.particles=[];
+  state.floatTexts=[];
+  state.spawnQueue=[];
+  state.spawnTimer=0;
+  wallSet.clear();
+  baseWeapon.cooldown=0;
+  updateHUD();
+}
+
+document.getElementById('start-btn').addEventListener('click', ()=>{
+  document.getElementById('start-overlay').style.display='none';
+  resetState();
+  state.running = true;
+  state.lastTime = 0;
+});
+
+document.getElementById('retry-btn').addEventListener('click', ()=>{
+  document.getElementById('gameover-overlay').style.display='none';
+  resetState();
+  state.running = true;
+  state.lastTime = 0;
+});
+
+// ---------- Settings panel ----------
+const CONFIG_DEFAULTS = JSON.parse(JSON.stringify(CONFIG));
+const settingsOverlay = document.getElementById('settings-overlay');
+
+function fillSettingsForm(){
+  for(const key in CONFIG){
+    const el = document.getElementById('cfg-'+key);
+    if(el) el.value = CONFIG[key];
+  }
+}
+
+function openSettings(){
+  fillSettingsForm();
+  settingsOverlay.classList.add('open');
+}
+function closeSettings(){
+  settingsOverlay.classList.remove('open');
+}
+
+document.getElementById('btn-settings').addEventListener('click', openSettings);
+document.getElementById('start-settings-btn').addEventListener('click', openSettings);
+document.getElementById('settings-close').addEventListener('click', closeSettings);
+settingsOverlay.addEventListener('click', (e)=>{
+  if(e.target === settingsOverlay) closeSettings();
+});
+
+document.getElementById('settings-reset-defaults').addEventListener('click', ()=>{
+  for(const key in CONFIG_DEFAULTS){
+    const el = document.getElementById('cfg-'+key);
+    if(el) el.value = CONFIG_DEFAULTS[key];
+  }
+});
+
+document.getElementById('settings-apply').addEventListener('click', ()=>{
+  for(const key in CONFIG){
+    const el = document.getElementById('cfg-'+key);
+    if(!el) continue;
+    const val = parseFloat(el.value);
+    if(!isNaN(val)) CONFIG[key] = val;
+  }
+  closeSettings();
+  // restart the run so the new balance takes effect cleanly
+  document.getElementById('start-overlay').style.display='none';
+  document.getElementById('gameover-overlay').style.display='none';
+  resetState();
+  state.running = true;
+  state.lastTime = 0;
+});
+
+updateHUD();
+requestAnimationFrame(loop);
 
 })();
 </script>
